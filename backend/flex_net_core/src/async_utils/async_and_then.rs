@@ -1,23 +1,13 @@
-pub trait AsyncAndThen<TOk, Err, UOk, F>
-where
-    F: AsyncFn(TOk) -> Result<UOk, Err>
-{
-    fn and_then_async(self, map: F) -> impl Future<Output = Result<UOk, Err>>;
+pub trait AsyncAndThen<TOk, Err, UOk> {
+    fn and_then_async(
+        self,
+        map: impl AsyncFn(TOk) -> Result<UOk, Err>,
+    ) -> impl Future<Output = Result<UOk, Err>>;
 }
 
-impl<TOk, Err, UOk, F> AsyncAndThen<TOk, Err, UOk, F> for Result<TOk, Err>
-where
-    TOk: Send,
-    UOk: Send,
-    F: AsyncFn(TOk) -> Result<UOk, Err>
-{
-    async fn and_then_async(self, map: F) -> Result<UOk, Err> {
-        match self {
-            Ok(val) => {
-                let x = map(val).await;
-                x
-            },
-            Err(err) => Err(err)
-        }
+impl<TOk, Err, UOk> AsyncAndThen<TOk, Err, UOk> for Result<TOk, Err> {
+    async fn and_then_async(self, map: impl AsyncFn(TOk) -> Result<UOk, Err>) -> Result<UOk, Err> {
+        let val = self?;
+        map(val).await
     }
 }

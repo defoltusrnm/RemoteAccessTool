@@ -20,17 +20,13 @@ where
     TConnection: NetConnection,
     TListener: SecureNetListener + NetAcceptable<TConnection> + Send,
 {
-    async fn start<TEndpointAddrSrc, TCertificateSrc>(
-        endpoint_src: TEndpointAddrSrc,
-        certificate_src: TCertificateSrc,
+    async fn start(
+        endpoint_src: impl EndpointAddressSrc,
+        certificate_src: impl CertificateSrc,
         server_handler: Box<
             dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
         >,
-    ) -> Result<(), anyhow::Error>
-    where
-        TEndpointAddrSrc: EndpointAddressSrc,
-        TCertificateSrc: CertificateSrc,
-    {
+    ) -> Result<(), anyhow::Error> {
         let endpoint = endpoint_src
             .get()
             .inspect(|addr| log::info!("server will try to use {0}:{1}", addr.host, addr.port))?;

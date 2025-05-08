@@ -30,14 +30,12 @@ where
     Box::pin(infinite_read_impl(listener, connection_handler))
 }
 
-pub async fn infinite_read_impl<TConnection, TListener, ConnFunc, ConnFut>(
-    listener: TListener,
-    connection_handler: ConnFunc,
+pub async fn infinite_read_impl<TConnection, ConnFut>(
+    listener: impl NetAcceptable<TConnection>,
+    connection_handler: impl Fn(TConnection) -> ConnFut,
 ) -> Result<(), anyhow::Error>
 where
     TConnection: NetConnection,
-    TListener: NetAcceptable<TConnection>,
-    ConnFunc: Fn(TConnection) -> ConnFut,
     ConnFut: 'static + Send + Future<Output = Result<(), anyhow::Error>>,
 {
     let mut set = task::JoinSet::new();

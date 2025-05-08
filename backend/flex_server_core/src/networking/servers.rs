@@ -11,14 +11,12 @@ where
     TConnection: NetConnection,
     TListener: NetListener + NetAcceptable<TConnection>,
 {
-    fn start<TEndpointAddrSrc>(
-        src: TEndpointAddrSrc,
+    fn start(
+        src: impl EndpointAddressSrc,
         server_handler: Box<
             dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
         >,
-    ) -> impl Future<Output = Result<(), anyhow::Error>>
-    where
-        TEndpointAddrSrc: EndpointAddressSrc;
+    ) -> impl Future<Output = Result<(), anyhow::Error>>;
 }
 
 pub trait SecureNetServer<TConnection, TListener>
@@ -26,14 +24,11 @@ where
     TConnection: NetConnection,
     TListener: SecureNetListener + NetAcceptable<TConnection>,
 {
-    fn start<TEndpointAddrSrc, TCertificateSrc>(
-        endpoint_src: TEndpointAddrSrc,
-        certificate_src: TCertificateSrc,
+    fn start(
+        endpoint_src: impl EndpointAddressSrc,
+        certificate_src: impl CertificateSrc,
         server_handler: Box<
             dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
         >,
-    ) -> impl Future<Output = Result<(), anyhow::Error>>
-    where
-        TEndpointAddrSrc: EndpointAddressSrc,
-        TCertificateSrc: CertificateSrc;
+    ) -> impl Future<Output = Result<(), anyhow::Error>>;
 }

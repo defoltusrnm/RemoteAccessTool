@@ -7,4 +7,5 @@ edition = "2024"
 anyhow = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
+futures = { workspace = true }
 flex_net_core = { path = "../flex_net_core" }

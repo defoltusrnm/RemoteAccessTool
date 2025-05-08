@@ -17,15 +17,12 @@ where
     TConnection: NetConnection,
     TListener: NetListener + Send + NetAcceptable<TConnection>,
 {
-    async fn start<TEndpointAddrSrc>(
-        src: TEndpointAddrSrc,
+    async fn start(
+        src: impl EndpointAddressSrc,
         server_handler: Box<
             dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
         >,
-    ) -> Result<(), anyhow::Error>
-    where
-        TEndpointAddrSrc: EndpointAddressSrc,
-    {
+    ) -> Result<(), anyhow::Error> {
         let x = src
             .get()
             .inspect(|addr| log::info!("server will try to use {0}:{1}", addr.host, addr.port))

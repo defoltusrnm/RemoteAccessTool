@@ -3,8 +3,7 @@ mod app_logging;
 use app_logging::logger_cfg::configure_logs;
 use dotenv::dotenv;
 use flex_net_core::{
-    error_handling::server_errors::ServerError, networking::connections::NetConnection,
-    utils::env_host_source::EnvEndpointAddressSrc,
+    networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
 use flex_net_tcp::networking::secure_connections::SecureNetTcpConnection;
 use flex_server_core::{
@@ -47,7 +46,7 @@ async fn secure_server() {
     }
 }
 
-pub async fn exact_read<TConnection>(mut connection: TConnection) -> Result<(), ServerError>
+pub async fn exact_read<TConnection>(mut connection: TConnection) -> Result<(), anyhow::Error>
 where
     TConnection: NetConnection,
 {
@@ -65,7 +64,7 @@ where
 
         let actual_message = connection.read_exactly(msg_size).await?;
         let msg = actual_message.to_string()?;
-        
+
         log::info!("Got message {0} {1} {2}", msg_size, msg.len(), msg);
     }
 }

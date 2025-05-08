@@ -1,11 +1,8 @@
-use std::{
-    env::{self, VarError},
-    io::Error,
-};
+use std::env;
 
+use anyhow::Context;
 use flex_net_core::{
     async_utils::async_and_then::AsyncAndThen,
-    error_handling::server_errors::ServerError,
     networking::certificate_src::{Certificate, CertificateSrc},
 };
 use tokio::{fs::File, io::AsyncReadExt};
@@ -25,16 +22,16 @@ impl Pkcs12CertificateSrc {
 }
 
 impl CertificateSrc for Pkcs12CertificateSrc {
-    async fn get(&self) -> Result<Certificate, ServerError> {
+    async fn get(&self) -> Result<Certificate, anyhow::Error> {
         let pwd_env_result =
-            env::var(&self.cert_pwd_env).map_err(ServerErrors::cannot_read_cert_pwd)?;
+            env::var(&self.cert_pwd_env).with_context(|| "Failed to get certificate pwd")?;
 
         let cert_path =
-            env::var(&self.cert_path_env).map_err(ServerErrors::cannot_read_cert_path)?;
+            env::var(&self.cert_path_env).with_context(|| "Failed to get certificate path")?;
 
         let cert_content = File::open(cert_path)
             .await
-            .map_err(ServerErrors::cannot_read_cert_file)
+            .with_context(|| "Failed read certificate content")
             .and_then_async(async |mut f: File| {
                 let mut content = vec![];
                 _ = f
@@ -49,21 +46,5 @@ impl CertificateSrc for Pkcs12CertificateSrc {
             cert_bytes: cert_content,
             cert_pwd: pwd_env_result,
         })
-    }
-}
-
-struct ServerErrors;
-
-impl ServerErrors {
-    pub fn cannot_read_cert_path(err: VarError) -> ServerError {
-        ServerError::new(format!("cannot read cert path from env: {err}"))
-    }
-
-    pub fn cannot_read_cert_pwd(err: VarError) -> ServerError {
-        ServerError::new(format!("cannot read cert password from env: {err}"))
-    }
-
-    pub fn cannot_read_cert_file(err: Error) -> ServerError {
-        ServerError::new(format!("cannot read cert file: {err}"))
     }
 }

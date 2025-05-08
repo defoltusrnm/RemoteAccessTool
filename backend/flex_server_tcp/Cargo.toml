@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1.44.1", features = ["full"] }
+tokio = { workspace = true }
+tokio-tls = { workspace = true }
+native-tls = { workspace = true }
+log = { workspace = true }
+tokio-native-tls = { workspace = true }
+anyhow = { workspace = true }
 flex_net_core = { path = "../flex_net_core" }
 flex_server_core = { path = "../flex_server_core" }
 flex_net_tcp = { path = "../flex_net_tcp" }
-tokio-tls = "0.3.1"
-native-tls = "0.2"
-tokio-native-tls = "0.3"
-log = "0.4.26"

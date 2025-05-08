@@ -1,4 +1,4 @@
-use crate::error_handling::server_errors::ServerError;
+use std::fmt::Display;
 
 pub struct EndpointAddress {
     pub host: String,
@@ -6,11 +6,14 @@ pub struct EndpointAddress {
 }
 
 impl EndpointAddress {
-    pub fn from_ip_and_port(host: String, port: i32) -> EndpointAddress {
-        EndpointAddress { host, port }
+    pub fn from_ip_and_port(host: &impl Display, port: i32) -> EndpointAddress {
+        EndpointAddress {
+            host: host.to_string(),
+            port,
+        }
     }
 }
 
 pub trait EndpointAddressSrc {
-    fn get(self) -> Result<EndpointAddress, ServerError>;
+    fn get(&self) -> Result<EndpointAddress, anyhow::Error>;
 }

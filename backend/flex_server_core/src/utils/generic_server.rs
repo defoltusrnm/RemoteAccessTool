@@ -2,11 +2,13 @@ use std::pin::Pin;
 
 use flex_net_core::{
     async_utils::async_and_then::AsyncAndThen,
-    error_handling::server_errors::ServerError,
     networking::{address_src::EndpointAddressSrc, connections::NetConnection},
 };
 
-use crate::networking::{listeners::{NetAcceptable, NetListener}, servers::NetServer};
+use crate::networking::{
+    listeners::{NetAcceptable, NetListener},
+    servers::NetServer,
+};
 
 pub struct GenericServer;
 
@@ -18,9 +20,9 @@ where
     async fn start<TEndpointAddrSrc>(
         src: TEndpointAddrSrc,
         server_handler: Box<
-            dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), ServerError>>>>,
+            dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
         >,
-    ) -> Result<(), ServerError>
+    ) -> Result<(), anyhow::Error>
     where
         TEndpointAddrSrc: EndpointAddressSrc,
     {

@@ -1,5 +1,3 @@
-use crate::error_handling::server_errors::ServerError;
-
 use super::messages::NetMessage;
 
 pub trait NetWriter
@@ -13,8 +11,15 @@ pub trait NetReader
 where
     Self: Send + Sized,
 {
-    fn read(&mut self, buffer_len: usize) -> impl Future<Output = Result<NetMessage, ServerError>>;
-    fn read_exactly(&mut self, buffer_len: usize) -> impl Future<Output = Result<NetMessage, ServerError>>;
+    fn read(
+        &mut self,
+        buffer_len: usize,
+    ) -> impl Future<Output = Result<NetMessage, anyhow::Error>>;
+
+    fn read_exactly(
+        &mut self,
+        buffer_len: usize,
+    ) -> impl Future<Output = Result<NetMessage, anyhow::Error>>;
 }
 
 pub trait NetConnection: NetReader + NetWriter {}

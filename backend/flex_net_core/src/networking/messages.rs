@@ -1,4 +1,4 @@
-use crate::error_handling::server_errors::ServerError;
+use anyhow::Context;
 
 pub struct NetMessage {
     bytes: Vec<u8>,
@@ -9,8 +9,8 @@ impl NetMessage {
         NetMessage { bytes }
     }
 
-    pub fn to_string(&self) -> Result<String, ServerError> {
-        String::from_utf8(self.bytes.to_owned()).map_err(|err| ServerError::new(err.to_string()))
+    pub fn to_string(&self) -> Result<String, anyhow::Error> {
+        String::from_utf8(self.bytes.to_owned()).with_context(|| "Failed to parse u8 bytes")
     }
 
     pub const fn bytes(&self) -> &Vec<u8> {

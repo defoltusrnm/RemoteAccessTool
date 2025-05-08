@@ -1,60 +1,66 @@
-use std::pin::Pin;
+use std::marker::PhantomData;
 
 use flex_net_core::networking::connections::NetConnection;
+use futures::{TryFutureExt, future::ready};
 use tokio::task;
 
 use super::listeners::NetAcceptable;
 
-pub fn infinite_read<'a, TConnection, TListener, ConnFunc, ConnFut>(
-    connection_handler: &'a ConnFunc,
-) -> Box<dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + 'a>> + 'a>
-where
-    TConnection: 'a + NetConnection,
-    TListener: 'a + NetAcceptable<TConnection>,
-    ConnFunc: Fn(TConnection) -> ConnFut,
-    ConnFut: 'static + Send + Future<Output = Result<(), anyhow::Error>>,
-{
-    Box::new(move |l| infinite_read_pin(l, connection_handler))
+pub trait ServerBehavior {
+    fn handle(
+        listener: impl NetAcceptable + 'static,
+    ) -> impl Future<Output = Result<(), anyhow::Error>>;
 }
 
-fn infinite_read_pin<'a, TConnection, TListener, ConnFunc, ConnFut>(
-    listener: TListener,
-    connection_handler: ConnFunc,
-) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>> + 'a>>
-where
-    TConnection: 'a + NetConnection,
-    TListener: 'a + NetAcceptable<TConnection>,
-    ConnFunc: 'a + Fn(TConnection) -> ConnFut,
-    ConnFut: 'static + Send + Future<Output = Result<(), anyhow::Error>>,
-{
-    Box::pin(infinite_read_impl(listener, connection_handler))
+pub trait ConnectionHandler {
+    fn handle(
+        connection: impl NetConnection,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send + 'static;
 }
 
-pub async fn infinite_read_impl<TConnection, ConnFut>(
-    listener: impl NetAcceptable<TConnection>,
-    connection_handler: impl Fn(TConnection) -> ConnFut,
-) -> Result<(), anyhow::Error>
+pub struct EmptyConnectionHandler {}
+
+impl ConnectionHandler for EmptyConnectionHandler {
+    fn handle(
+        _connection: impl NetConnection,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send + 'static {
+        ready(Ok(()))
+    }
+}
+
+pub struct InfiniteReadBehavior<TConnectionHandler: ConnectionHandler> {
+    connection_handler: PhantomData<TConnectionHandler>,
+}
+
+impl<TConnectionHandler> InfiniteReadBehavior<TConnectionHandler>
 where
-    TConnection: NetConnection,
-    ConnFut: 'static + Send + Future<Output = Result<(), anyhow::Error>>,
+    TConnectionHandler: ConnectionHandler + Send + 'static,
 {
-    let mut set = task::JoinSet::new();
-    loop {
-        log::info!("waiting for new connections");
-        match listener.accept().await {
-            Ok(connection) => {
-                log::info!("got connection");
+    fn process_connection(
+        connection: impl NetConnection + 'static,
+    ) -> impl Future<Output = ()> + Send + 'static {
+        async move {
+            _ = TConnectionHandler::handle(connection)
+                .inspect_ok(|_| log::trace!("Connection ended"))
+                .inspect_err(|err| log::error!("Connection ended with error: {err}"))
+                .await;
+        }
+    }
+}
 
-                set.spawn(connection_handler(connection));
-            }
-            Err(err) => {
-                set.join_all().await.iter().for_each(|res| match res {
-                    Ok(()) => log::info!("connection handled"),
-                    Err(err) => log::error!("connection handled with: {err}"),
-                });
+impl<TConnectionHandler> ServerBehavior for InfiniteReadBehavior<TConnectionHandler>
+where
+    TConnectionHandler: ConnectionHandler + Send + 'static,
+{
+    async fn handle(listener: impl NetAcceptable + 'static) -> Result<(), anyhow::Error> {
+        let mut set = task::JoinSet::<()>::new();
+        loop {
+            log::trace!("waiting for new connections");
 
-                return Err(err);
-            }
-        };
+            let connection = listener.accept().await?;
+            log::trace!("got connection");
+
+            set.spawn(Self::process_connection(connection));
+        }
     }
 }

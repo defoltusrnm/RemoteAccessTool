@@ -1,43 +1,39 @@
-use std::pin::Pin;
+use std::marker::PhantomData;
 
-use flex_net_core::{
-    async_utils::async_and_then::AsyncAndThen,
-    networking::{
-        address_src::EndpointAddressSrc, certificate_src::CertificateSrc,
-        connections::NetConnection,
-    },
-};
+use flex_net_core::networking::{address_src::EndpointAddressSrc, certificate_src::CertificateSrc};
 
 use crate::networking::{
     listeners::{NetAcceptable, SecureNetListener},
+    server_behaviors::ServerBehavior,
     servers::SecureNetServer,
 };
 
-pub struct SecureGenericServer;
+pub struct SecureGenericServer<TListener: SecureNetListener + NetAcceptable> {
+    listener: PhantomData<TListener>,
+}
 
-impl<TConnection, TListener> SecureNetServer<TConnection, TListener> for SecureGenericServer
+impl<TListener> SecureNetServer for SecureGenericServer<TListener>
 where
-    TConnection: NetConnection,
-    TListener: SecureNetListener + NetAcceptable<TConnection> + Send,
+    TListener: SecureNetListener + NetAcceptable,
 {
-    async fn start(
-        endpoint_src: impl EndpointAddressSrc,
-        certificate_src: impl CertificateSrc,
-        server_handler: Box<
-            dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
-        >,
+    async fn start<TServerBehavior: ServerBehavior>(
+        endpoint_src: &impl EndpointAddressSrc,
+        certificate_src: &impl CertificateSrc,
     ) -> Result<(), anyhow::Error> {
-        let endpoint = endpoint_src
-            .get()
-            .inspect(|addr| log::info!("server will try to use {0}:{1}", addr.host, addr.port))?;
+        let endpoint = endpoint_src.get()?;
+
+        log::info!(
+            "server will try to use {0}:{1}",
+            endpoint.host,
+            endpoint.port
+        );
+
         let certificate = certificate_src.get().await?;
+        let acceptable = TListener::bind(endpoint, certificate).await?;
+        log::info!("server ready to receive new connections");
 
-        let x = TListener::bind(endpoint, certificate)
-            .await
-            .inspect(|_| log::info!("server ready to receive new connections"))
-            .and_then_async(|listener| server_handler(listener))
-            .await;
+        TServerBehavior::handle(acceptable).await?;
 
-        x
+        Ok(())
     }
 }

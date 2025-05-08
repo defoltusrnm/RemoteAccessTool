@@ -1,37 +1,25 @@
-use std::pin::Pin;
+use std::marker::PhantomData;
 
-use flex_net_core::{
-    async_utils::async_and_then::AsyncAndThen,
-    networking::{address_src::EndpointAddressSrc, connections::NetConnection},
-};
+use flex_net_core::networking::address_src::EndpointAddressSrc;
 
 use crate::networking::{
-    listeners::{NetAcceptable, NetListener},
-    servers::NetServer,
+    listeners::NetListener, server_behaviors::ServerBehavior, servers::NetServer,
 };
 
-pub struct GenericServer;
+pub struct GenericServer<TListener: NetListener> {
+    listener: PhantomData<TListener>,
+}
 
-impl<TConnection, TListener> NetServer<TConnection, TListener> for GenericServer
-where
-    TConnection: NetConnection,
-    TListener: NetListener + Send + NetAcceptable<TConnection>,
-{
-    async fn start(
-        src: impl EndpointAddressSrc,
-        server_handler: Box<
-            dyn Fn(TListener) -> Pin<Box<dyn Future<Output = Result<(), anyhow::Error>>>>,
-        >,
+impl<TListener: NetListener> NetServer for GenericServer<TListener> {
+    async fn start<TServerBehavior: ServerBehavior>(
+        src: &impl EndpointAddressSrc,
     ) -> Result<(), anyhow::Error> {
-        let x = src
-            .get()
-            .inspect(|addr| log::info!("server will try to use {0}:{1}", addr.host, addr.port))
-            .and_then_async(|addr| TListener::bind(addr))
-            .await
-            .inspect(|_| log::info!("server ready to receive new connections"))
-            .and_then_async(|listener| server_handler(listener))
-            .await;
+        let addr = src.get()?;
+        log::info!("server will try to use {0}:{1}", addr.host, addr.port);
 
-        x
+        let acceptable = TListener::bind(addr).await?;
+        TServerBehavior::handle(acceptable).await?;
+
+        Ok(())
     }
 }

@@ -1,5 +1,7 @@
 use anyhow::Context;
-use flex_net_core::networking::{address_src::EndpointAddress, certificate_src::Certificate};
+use flex_net_core::networking::{
+    address_src::EndpointAddress, certificate_src::Certificate, connections::NetConnection,
+};
 use flex_net_tcp::networking::secure_connections::SecureNetTcpConnection;
 use flex_server_core::networking::listeners::{NetAcceptable, SecureNetListener};
 use native_tls::{Identity, TlsAcceptor as NativeTlsAcceptor};
@@ -15,7 +17,7 @@ impl SecureNetListener for SecureTcpNetListener {
     async fn bind(
         addr: EndpointAddress,
         cert: Certificate,
-    ) -> Result<SecureTcpNetListener, anyhow::Error> {
+    ) -> Result<impl NetAcceptable, anyhow::Error> {
         let identity = Identity::from_pkcs12(&cert.cert_bytes, &cert.cert_pwd)
             .with_context(|| "Failed to read certificate")
             .and_then(|identity| {
@@ -36,8 +38,8 @@ impl SecureNetListener for SecureTcpNetListener {
     }
 }
 
-impl NetAcceptable<SecureNetTcpConnection> for SecureTcpNetListener {
-    async fn accept(&self) -> Result<SecureNetTcpConnection, anyhow::Error> {
+impl NetAcceptable for SecureTcpNetListener {
+    async fn accept(&self) -> Result<impl NetConnection + 'static, anyhow::Error> {
         let (socket, _) = self
             .inner_listener
             .accept()

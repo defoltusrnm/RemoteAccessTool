@@ -5,9 +5,11 @@ use dotenv::dotenv;
 use flex_net_core::{
     networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
-use flex_net_tcp::networking::secure_connections::SecureNetTcpConnection;
 use flex_server_core::{
-    networking::{server_behaviors, servers::SecureNetServer},
+    networking::{
+        server_behaviors::{EmptyConnectionHandler, InfiniteReadBehavior},
+        servers::SecureNetServer,
+    },
     utils::secure_generic_server::SecureGenericServer,
 };
 use flex_server_tcp::{
@@ -29,15 +31,11 @@ async fn main() {
 }
 
 async fn secure_server() {
-    let server_handler =
-        server_behaviors::infinite_read::<SecureNetTcpConnection, SecureTcpNetListener, _, _>(
-            &exact_read::<SecureNetTcpConnection>,
-        );
-
-    match SecureGenericServer::start(
-        EnvEndpointAddressSrc::new_with_port_fallback(4141),
-        Pkcs12CertificateSrc::new_from_env("CERT_PATH", "CERT_PWD"),
-        server_handler,
+    match SecureGenericServer::<SecureTcpNetListener>::start::<
+        InfiniteReadBehavior<EmptyConnectionHandler>,
+    >(
+        &EnvEndpointAddressSrc::new_with_port_fallback(4141),
+        &Pkcs12CertificateSrc::new_from_env("CERT_PATH", "CERT_PWD"),
     )
     .await
     {

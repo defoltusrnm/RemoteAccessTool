@@ -1,0 +1,9 @@
+[package]
+name = "flex_server_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flex_net_core = { path = "../flex_net_core" }
+log = "0.4.26"
+tokio = { version = "1.44.1", features = ["full"] }

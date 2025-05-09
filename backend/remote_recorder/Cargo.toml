@@ -1,0 +1,10 @@
+[package]
+name = "remote_recorder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
+xcap = "0.5.1"
+futures = { workspace = true }

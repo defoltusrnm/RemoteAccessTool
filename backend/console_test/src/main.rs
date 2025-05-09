@@ -18,6 +18,9 @@ use flex_server_tcp::{
 };
 use log::LevelFilter;
 
+type Server = SecureGenericServer<SecureTcpNetListener>;
+type ServerBehavior = InfiniteReadBehavior<EmptyConnectionHandler>;
+
 #[tokio::main]
 async fn main() {
     configure_logs(LevelFilter::Trace).unwrap();
@@ -31,38 +34,14 @@ async fn main() {
 }
 
 async fn secure_server() {
-    match SecureGenericServer::<SecureTcpNetListener>::start::<
-        InfiniteReadBehavior<EmptyConnectionHandler>,
-    >(
+    let res = Server::start::<ServerBehavior>(
         &EnvEndpointAddressSrc::new_with_port_fallback(4141),
         &Pkcs12CertificateSrc::new_from_env("CERT_PATH", "CERT_PWD"),
     )
-    .await
-    {
+    .await;
+
+    match res {
         Ok(()) => log::info!("server ended it's work"),
         Err(err) => log::error!("server ended it's work with: {err}"),
-    }
-}
-
-pub async fn exact_read<TConnection>(mut connection: TConnection) -> Result<(), anyhow::Error>
-where
-    TConnection: NetConnection,
-{
-    loop {
-        let msg_size = connection.read_exactly(8).await.map(|msg| {
-            let mut usize_bytes = [0u8; 8];
-            usize_bytes.copy_from_slice(&msg.bytes());
-
-            if cfg!(target_endian = "big") {
-                usize::from_be_bytes(usize_bytes)
-            } else {
-                usize::from_le_bytes(usize_bytes)
-            }
-        })?;
-
-        let actual_message = connection.read_exactly(msg_size).await?;
-        let msg = actual_message.to_string()?;
-
-        log::info!("Got message {0} {1} {2}", msg_size, msg.len(), msg);
     }
 }

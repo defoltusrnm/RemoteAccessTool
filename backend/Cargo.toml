@@ -5,7 +5,7 @@ members = [
     "flex_net_core",
     "flex_net_tcp",
     "flex_server_core",
-    "flex_server_tcp",
+    "flex_server_tcp", "remote_recorder",
 ]
 
 [workspace.dependencies]

@@ -14,7 +14,7 @@ pub trait ServerBehavior {
 
 pub trait ConnectionHandler {
     fn handle(
-        connection: impl NetConnection,
+        connection: impl NetConnection + 'static,
     ) -> impl Future<Output = Result<(), anyhow::Error>> + Send + 'static;
 }
 

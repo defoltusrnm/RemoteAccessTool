@@ -8,3 +8,7 @@ anyhow = { workspace = true }
 tokio = { workspace = true }
 xcap = "0.5.1"
 futures = { workspace = true }
+flex_net_core = { path = "../flex_net_core" }
+flex_server_core = { path = "../flex_server_core" }
+flex_net_tcp = { path = "../flex_net_tcp" }
+flex_server_tcp = { path = "../flex_server_tcp" }

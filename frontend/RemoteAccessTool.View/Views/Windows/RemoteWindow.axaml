@@ -3,13 +3,11 @@
         xmlns:vm="using:RemoteAccessTool.View.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:markup="clr-namespace:RemoteAccessTool.Infrastructure.Markup;assembly=RemoteAccessTool.Infrastructure"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="RemoteAccessTool.View.Views.Windows.RemoteWindow"
         x:DataType="vm:RemoteViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="RemoteAccessTool.View"
-        DataContext="{markup:Inject Type={x:Type vm:RemoteViewModel}}">
+        Title="RemoteAccessTool.View">
 
     <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 

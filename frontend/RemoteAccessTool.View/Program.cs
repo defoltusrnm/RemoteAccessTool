@@ -1,5 +1,7 @@
 ﻿using System;
 using Avalonia;
+using Microsoft.Extensions.DependencyInjection;
+using RemoteAccessTool.Application;
 using RemoteAccessTool.Infrastructure.Extensions;
 using RemoteAccessTool.View.Views.Windows;
 
@@ -12,14 +14,16 @@ internal sealed class Program
     {
         var assembly = typeof(Program).Assembly;
 
-        var builder = BuilderEx.CreateDefaultBuilder(AppBuilder.Configure<App>()
+        var builder = BuilderEx.CreateDefaultBuilder(AppBuilder
+            .Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace());
 
         builder.Services
             .AddViewModels(assembly)
-            .AddWindows<RemoteWindow>(assembly);
+            .AddWindows<RemoteWindow>(assembly)
+            .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(AssemblyLocator.Assembly));
 
         var app = builder.Build();
 

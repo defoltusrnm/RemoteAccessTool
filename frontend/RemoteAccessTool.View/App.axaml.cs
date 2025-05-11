@@ -1,13 +1,11 @@
 using System.Linq;
-using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
-using RemoteAccessTool.Infrastructure.Hosting.Interfaces;
 
 namespace RemoteAccessTool.View;
 
-public partial class App : Application
+public partial class App : Avalonia.Application
 {
     public override void Initialize()
     {

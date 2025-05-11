@@ -1,12 +1,9 @@
 pub mod utils;
 
+use crate::utils::reading::*;
 use anyhow::Context;
 use flex_net_core::{
-    networking::{
-        connections::{self, NetConnection, NetReader},
-        messages::NetMessage,
-    },
-    utils::env_host_source::EnvEndpointAddressSrc,
+    networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
 use flex_server_core::{
     networking::{
@@ -21,7 +18,7 @@ use flex_server_tcp::{
 };
 use futures::StreamExt;
 use tokio::task::JoinSet;
-use utils::stream::IntoStream;
+use utils::{reading::ReadByte, stream::IntoStream};
 use xcap::Monitor;
 
 type Server = SecureGenericServer<SecureTcpNetListener>;
@@ -61,29 +58,19 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
     async fn handle(mut connection: impl NetConnection + 'static) -> Result<(), anyhow::Error> {
         let command_frame = connection.read_command().await?;
 
+        match command_frame {
+            Command::Login => {
+                let login = connection.extract_string().await?;
+                let password = connection.extract_string().await?;
+            }
+        };
+
         Ok(())
     }
 }
 
 enum Command {
     Login,
-}
-
-trait ReadByte {
-    fn read_single_byte(&mut self) -> impl Future<Output = Result<u8, anyhow::Error>> + Send;
-}
-
-impl<T: NetReader> ReadByte for T {
-    async fn read_single_byte(&mut self) -> Result<u8, anyhow::Error> {
-        let frame = self.read_exactly(1).await?;
-
-        let byte = *frame
-            .bytes()
-            .get(0)
-            .with_context(|| "read buffer was empty, but expected to have single element")?;
-
-        Ok(byte)
-    }
 }
 
 trait ReadCommand {
@@ -98,18 +85,5 @@ impl<T: ReadByte + Send> ReadCommand for T {
             1 => Ok(Command::Login),
             _ => anyhow::bail!("unknown command"),
         }
-    }
-}
-
-trait ReadInteger {
-    fn read_integer(&mut self) -> impl Future<Output = Result<i32, anyhow::Error>>;
-}
-
-impl<T: ReadByte + NetReader> ReadInteger for T {
-    async fn read_integer(&mut self) -> Result<i32, anyhow::Error> {
-        let endianess_byte = self.read_single_byte().await?;
-        let number_frame = self.read_exactly(4).await?;
-
-            
     }
 }

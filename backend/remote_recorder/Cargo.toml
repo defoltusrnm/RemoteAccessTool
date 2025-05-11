@@ -12,3 +12,6 @@ flex_net_core = { path = "../flex_net_core" }
 flex_server_core = { path = "../flex_server_core" }
 flex_net_tcp = { path = "../flex_net_tcp" }
 flex_server_tcp = { path = "../flex_server_tcp" }
+dotenv = "0.15.0"
+log4rs = "1.3.0"
+log = { workspace = true }

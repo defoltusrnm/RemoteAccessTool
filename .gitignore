@@ -10,6 +10,7 @@
 **/target
 **/.env
 **/Cargo.lock
+**/.certs
 
 # User-specific files
 *.rsuser

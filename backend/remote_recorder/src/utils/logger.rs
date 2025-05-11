@@ -1,8 +1,13 @@
-use log::{LevelFilter, SetLoggerError};
-use log4rs::{append::console::ConsoleAppender, config::{Appender, Root}, encode::pattern::PatternEncoder, Config, Handle};
+use anyhow::Context;
+use log::LevelFilter;
+use log4rs::{
+    Config, Handle,
+    append::console::ConsoleAppender,
+    config::{Appender, Root},
+    encode::pattern::PatternEncoder,
+};
 
-
-pub fn configure_logs(min_level: LevelFilter) -> Result<Handle, SetLoggerError> {
+pub fn configure_logs(min_level: LevelFilter) -> Result<Handle, anyhow::Error> {
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d(%Y-%m-%d %H:%M:%S)} [{l}] {m}{n}",
@@ -14,5 +19,5 @@ pub fn configure_logs(min_level: LevelFilter) -> Result<Handle, SetLoggerError> 
         .build(Root::builder().appender("console").build(min_level))
         .unwrap();
 
-    log4rs::init_config(config)
+    log4rs::init_config(config).with_context(|| "failed to init logger")
 }

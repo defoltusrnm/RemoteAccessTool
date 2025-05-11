@@ -1,8 +1,6 @@
 pub mod features;
 pub mod utils;
 
-use std::time::Duration;
-
 use crate::utils::reading::*;
 use crate::utils::writing::*;
 use features::login::check_credentials;

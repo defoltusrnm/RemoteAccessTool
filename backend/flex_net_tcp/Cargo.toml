@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+log = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 flex_net_core = { path = "../flex_net_core" }

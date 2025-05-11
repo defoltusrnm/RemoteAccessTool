@@ -3,7 +3,10 @@ use flex_net_core::networking::{
     connections::{NetConnection, NetReader, NetWriter},
     messages::NetMessage,
 };
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
 
 pub struct NetTcpConnection {
     inner_socket: TcpStream,
@@ -47,7 +50,11 @@ impl NetReader for NetTcpConnection {
 }
 
 impl NetWriter for NetTcpConnection {
-    fn write(self) {
-        todo!()
+    async fn write(&mut self, buffer: &[u8]) -> Result<(), anyhow::Error> {
+        self.inner_socket
+            .write(buffer)
+            .await
+            .with_context(|| "failed to send to connection")
+            .map(|_| ())
     }
 }

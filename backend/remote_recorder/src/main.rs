@@ -1,6 +1,11 @@
+pub mod features;
 pub mod utils;
 
+use std::time::Duration;
+
 use crate::utils::reading::*;
+use crate::utils::writing::*;
+use features::login::check_credentials;
 use flex_net_core::{
     networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
@@ -15,6 +20,7 @@ use flex_server_tcp::{
     networking::secure_listeners::SecureTcpNetListener,
     utils::pkcs12_certificate_src::Pkcs12CertificateSrc,
 };
+use futures::TryFutureExt;
 use utils::{logger::configure_logs, reading::ReadByte};
 
 type Server = SecureGenericServer<SecureTcpNetListener>;
@@ -48,7 +54,6 @@ async fn main() -> Result<(), anyhow::Error> {
         &Pkcs12CertificateSrc::new_from_env("CERT_PATH", "CERT_PWD"),
     )
     .await
-    
 }
 struct ProcessRemoteAccessConnection;
 
@@ -58,9 +63,27 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
 
         match command_frame {
             Command::Login => {
+                let command_id = connection.read_number::<u32>().await?;
+                log::trace!("got command: {command_id}");
+
                 let login = connection.extract_string().await?;
                 let password = connection.extract_string().await?;
-                log::info!("got user: {login} ; {password}");
+                let result = check_credentials(login, password)
+                    .inspect_err(|err| log::trace!("failed to authorize: {err}"))
+                    .await;
+
+                match result {
+                    Ok(()) => {
+                        connection.write_number(command_id).await?;
+                        connection.write_string_with_size(&"LOGIN_OK").await?;
+                        log::info!("session auth ok")
+                    }
+                    Err(err) => {
+                        connection.write_number(command_id).await?;
+                        connection.write_string_with_size(&"LOGIN_FAIL").await?;
+                        log::error!("session auth fail: {err}");
+                    }
+                }
             }
         };
 

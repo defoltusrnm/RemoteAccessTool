@@ -1,6 +1,13 @@
-﻿namespace RemoteAccessTool.Infrastructure.Options;
+﻿using Microsoft.Extensions.Options;
 
-public class PlainOptions
+namespace RemoteAccessTool.Infrastructure.Options;
+
+public class PlainOptions<T> : IOptions<T> where T : class
 {
-    
+    public PlainOptions(T value)
+    {
+        Value = value;
+    }
+
+    public T Value { get; }
 }

@@ -2,6 +2,8 @@
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using RemoteAccessTool.Infrastructure.Options;
 
 namespace RemoteAccessTool.Infrastructure.Extensions;
 
@@ -47,4 +49,7 @@ public static class DiEx
             )
             .services
             .AddKeyedSingleton<Window, TMainWindow>("MainWindow");
+
+    public static IServiceCollection AddPlainOptions<TOpt>(this IServiceCollection serviceCollection, TOpt value)
+        where TOpt : class => serviceCollection.AddSingleton<IOptions<TOpt>>(new PlainOptions<TOpt>(value));
 }

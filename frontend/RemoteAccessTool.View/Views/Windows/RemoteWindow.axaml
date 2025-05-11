@@ -9,6 +9,12 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="RemoteAccessTool.View">
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <StackPanel Orientation="Vertical">
+        <Button Command="{Binding Login}"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Content="Click" />
+        <TextBlock Text="{Binding LoginResult}" />
+    </StackPanel>
 
 </Window>

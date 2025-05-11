@@ -1,6 +1,7 @@
 ﻿<Solution>
   <Folder Name="/src/">
     <Project Path="RemoteAccessTool.Application\RemoteAccessTool.Application.csproj" Type="Classic C#" />
+    <Project Path="RemoteAccessTool.Domain\RemoteAccessTool.Domain.csproj" Type="Classic C#" />
     <Project Path="RemoteAccessTool.Infrastructure\RemoteAccessTool.Infrastructure.csproj" Type="Classic C#" />
     <Project Path="RemoteAccessTool.View\RemoteAccessTool.View.csproj" Type="Classic C#" />
   </Folder>

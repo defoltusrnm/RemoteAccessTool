@@ -9,6 +9,8 @@ pub trait ReadByte {
 
 impl<T: NetReader> ReadByte for T {
     async fn read_single_byte(&mut self) -> Result<u8, anyhow::Error> {
+        log::trace!("reading single byte");
+
         let frame = self.read_exactly(1).await?;
 
         let byte = *frame
@@ -28,6 +30,8 @@ pub trait ReadInteger {
 
 impl<T: ReadByte + NetReader> ReadInteger for T {
     async fn read_number<Number: EndianRead>(&mut self) -> Result<Number, anyhow::Error> {
+        log::trace!("reading number");
+
         let endianness_byte = self.read_single_byte().await?;
         let number_frame = self.read_exactly(Number::size()).await?;
 
@@ -47,6 +51,8 @@ pub trait ReadString {
 
 impl<T: NetReader> ReadString for T {
     async fn read_string(&mut self, len: u32) -> Result<String, anyhow::Error> {
+        log::trace!("reading string");
+
         let buffer_len: usize = len
             .try_into()
             .with_context(|| "cannot get usize from u32")?;
@@ -61,7 +67,11 @@ pub trait ExtractString {
 
 impl<T: ReadInteger + ReadString> ExtractString for T {
     async fn extract_string(&mut self) -> Result<String, anyhow::Error> {
+        log::trace!("extracting string");
+
         let size = self.read_number().await?;
+        log::trace!("string len: {size}");
+
         self.read_string(size).await
     }
 }

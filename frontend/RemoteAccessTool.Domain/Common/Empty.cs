@@ -1,6 +1,6 @@
 ﻿namespace RemoteAccessTool.Domain.Common;
 
-public struct Void
+public struct Empty
 {
-    public static readonly Void Value = new();
+    public static readonly Empty Value = new();
 }

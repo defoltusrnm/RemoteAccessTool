@@ -4,7 +4,7 @@ pub trait NetWriter
 where
     Self: Send + Sized,
 {
-    fn write(self);
+    fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
 }
 
 pub trait NetReader

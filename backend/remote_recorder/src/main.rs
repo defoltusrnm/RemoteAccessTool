@@ -3,6 +3,7 @@ pub mod utils;
 
 use crate::utils::reading::*;
 use crate::utils::writing::*;
+use anyhow::bail;
 use features::login::check_credentials;
 use flex_net_core::{
     networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
@@ -66,24 +67,20 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
 
                 let login = connection.extract_string().await?;
                 let password = connection.extract_string().await?;
+
                 let result = check_credentials(login, password)
                     .inspect_err(|err| log::trace!("failed to authorize: {err}"))
                     .await;
 
-                match result {
-                    Ok(()) => {
-                        connection.write_number(command_id).await?;
-                        connection.write_string_with_size(&"LOGIN_OK").await?;
-                        log::info!("session auth ok")
-                    }
-                    Err(err) => {
-                        connection.write_number(command_id).await?;
-                        connection.write_string_with_size(&"LOGIN_FAIL").await?;
-                        log::error!("session auth fail: {err}");
-                    }
-                }
+                connection.write_number(command_id).await?;
+
+                let status = match result {
+                    Ok(()) => &"LOGIN_OK",
+                    Err(_) => &"LOGIN_FAIL",
+                };
+                connection.write_string_with_size(status).await?;
             }
-        };
+        }
 
         Ok(())
     }

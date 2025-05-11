@@ -48,8 +48,8 @@ async fn main() -> Result<(), anyhow::Error> {
         &Pkcs12CertificateSrc::new_from_env("CERT_PATH", "CERT_PWD"),
     )
     .await
+    
 }
-
 struct ProcessRemoteAccessConnection;
 
 impl ConnectionHandler for ProcessRemoteAccessConnection {
@@ -60,6 +60,7 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
             Command::Login => {
                 let login = connection.extract_string().await?;
                 let password = connection.extract_string().await?;
+                log::info!("got user: {login} ; {password}");
             }
         };
 

@@ -23,6 +23,6 @@ internal sealed class Program
 
         var app = builder.Build();
 
-        app.Start();
+        app.Start(args);
     }
 }

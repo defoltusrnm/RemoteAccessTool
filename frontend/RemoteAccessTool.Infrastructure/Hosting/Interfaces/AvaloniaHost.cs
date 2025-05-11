@@ -11,11 +11,10 @@ public class AvaloniaHost : ISyncHost
         Services = services;
     }
 
-    public void Start()
+    public void Start(string[] args)
     {
         var builder = Services.GetRequiredService<AppBuilder>();
-
-        builder.StartWithClassicDesktopLifetime([],
+        builder.StartWithClassicDesktopLifetime(args,
             cfg => { cfg.MainWindow = Services.GetRequiredKeyedService<Window>("MainWindow"); });
     }
 

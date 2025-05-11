@@ -31,7 +31,7 @@ public static class DiEx
         this IServiceCollection services,
         Assembly assembly,
         IDictionary<Type, ServiceLifetime>? overrides = null
-    ) where TMainWindow : Window
+    ) where TMainWindow : Window, new()
         => assembly.GetTypes().Where(x => x.IsAssignableTo(typeof(Window)) && x != typeof(TMainWindow))
             .Aggregate(
                 (services, overrides),
@@ -46,5 +46,5 @@ public static class DiEx
                         : x.services.AddSingleton(type), x.overrides)
             )
             .services
-            .AddKeyedSingleton<Window, TMainWindow>("MainWindow");
+            .AddKeyedSingleton<Window, TMainWindow>("MainWindow", (_, _) => new TMainWindow());
 }

@@ -2,6 +2,6 @@
 
 public interface ISyncHost
 {
-    void Start();
+    void Start(string[] args);
     IServiceProvider Services { get; }
 }

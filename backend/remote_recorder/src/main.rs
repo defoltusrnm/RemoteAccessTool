@@ -1,10 +1,7 @@
 pub mod features;
 pub mod utils;
 
-use crate::utils::reading::*;
-use crate::utils::writing::*;
-use anyhow::bail;
-use features::login::check_credentials;
+use features::protocol_traits::AuthorizationFlow;
 use flex_net_core::{
     networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
@@ -19,8 +16,7 @@ use flex_server_tcp::{
     networking::secure_listeners::SecureTcpNetListener,
     utils::pkcs12_certificate_src::Pkcs12CertificateSrc,
 };
-use futures::TryFutureExt;
-use utils::{logger::configure_logs, reading::ReadByte};
+use utils::logger::configure_logs;
 
 type Server = SecureGenericServer<SecureTcpNetListener>;
 type ServerBehavior = InfiniteReadBehavior<ProcessRemoteAccessConnection>;
@@ -58,49 +54,8 @@ struct ProcessRemoteAccessConnection;
 
 impl ConnectionHandler for ProcessRemoteAccessConnection {
     async fn handle(mut connection: impl NetConnection + 'static) -> Result<(), anyhow::Error> {
-        let command_frame = connection.read_command().await?;
-
-        match command_frame {
-            Command::Login => {
-                let command_id = connection.read_number::<u32>().await?;
-                log::trace!("got command: {command_id}");
-
-                let login = connection.extract_string().await?;
-                let password = connection.extract_string().await?;
-
-                let result = check_credentials(login, password)
-                    .inspect_err(|err| log::trace!("failed to authorize: {err}"))
-                    .await;
-
-                connection.write_number(command_id).await?;
-
-                let status = match result {
-                    Ok(()) => &"LOGIN_OK",
-                    Err(_) => &"LOGIN_FAIL",
-                };
-                connection.write_string_with_size(status).await?;
-            }
-        }
+        connection.authorize().await?;
 
         Ok(())
-    }
-}
-
-enum Command {
-    Login,
-}
-
-trait ReadCommand {
-    fn read_command(&mut self) -> impl Future<Output = Result<Command, anyhow::Error>> + Send;
-}
-
-impl<T: ReadByte + Send> ReadCommand for T {
-    async fn read_command(&mut self) -> Result<Command, anyhow::Error> {
-        let command_byte = self.read_single_byte().await?;
-
-        match command_byte {
-            1 => Ok(Command::Login),
-            _ => anyhow::bail!("unknown command"),
-        }
     }
 }

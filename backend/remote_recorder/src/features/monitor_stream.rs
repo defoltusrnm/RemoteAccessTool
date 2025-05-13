@@ -7,7 +7,7 @@ use anyhow::Context;
 use flex_net_core::networking::connections::NetConnection;
 use futures::StreamExt;
 use futures::stream::{repeat_with, select_all};
-use xcap::{Frame, Monitor};
+use xcap::Monitor;
 
 use super::events::Event;
 use super::protocol_traits::StreamMonitorFlow;
@@ -21,7 +21,9 @@ impl<T: NetConnection + Send + 'static> StreamMonitorFlow for T {
 
         for monitor in monitors {
             let id = monitor.id().with_context(|| "failed to get monitor id")?;
-            log::trace!("monitor: {0} {1} prepared", monitor.id()?, monitor.name()?);
+            let name = monitor.name().with_context(|| "failed to get monitor id")?;
+
+            log::trace!("monitor: {id} {name} prepared");
 
             let func = move || {
                 monitor.capture_image().map(|x| {
@@ -37,31 +39,38 @@ impl<T: NetConnection + Send + 'static> StreamMonitorFlow for T {
             streams.push(stream);
         }
 
-        let loop_fn = async move || {
-            let rate = ThrottleRate::new(5, Duration::from_millis(16));
-            let pool = ThrottlePool::new(rate);
+        let rate = ThrottleRate::new(5, Duration::from_millis(16));
+        let pool = ThrottlePool::new(rate);
 
-            let mut multiplexer = select_all(streams).throttle(pool);
+        let mut multiplexer = select_all(streams).throttle(pool);
 
-            while let Some(Ok((frame, id))) = multiplexer.next().await {
-                self.write_event(Event::Screen).await?;
-                self.write_number(id).await?;
-                self.write_number(frame.width).await?;
-                self.write_number(frame.height).await?;
+        while let Some(Ok((frame, id))) = multiplexer.next().await {
+            self.write_event(Event::Screen).await?;
+            self.write_number(id).await?;
+            self.write_number(frame.width).await?;
+            self.write_number(frame.height).await?;
 
-                let frame_len: u32 = frame.raw.len().try_into()?;
-                self.write_number(frame_len).await?;
+            let frame_len: u32 = frame.raw.len().try_into()?;
+            self.write_number(frame_len).await?;
 
-                self.write(frame.raw.as_slice()).await?;
+            self.write(frame.raw.as_slice()).await?;
 
-                log::trace!("data send");
-            }
-
-            Result::<(), anyhow::Error>::Ok(())
-        };
-
-        loop_fn().await?;
+            log::trace!("data send");
+        }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Frame {
+    pub width: u32,
+    pub height: u32,
+    pub raw: Vec<u8>,
+}
+
+impl Frame {
+    pub fn new(width: u32, height: u32, raw: Vec<u8>) -> Self {
+        Frame { width, height, raw }
     }
 }

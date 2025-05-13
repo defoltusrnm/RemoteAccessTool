@@ -3,7 +3,7 @@ use stream_throttle::{ThrottlePool, ThrottleRate, ThrottledStream};
 
 use crate::features::events::WriteEvent;
 use crate::utils::writing::NumberWrite;
-use anyhow::Context;
+use anyhow::{Context, bail};
 use flex_net_core::networking::connections::NetConnection;
 use futures::StreamExt;
 use futures::stream::{repeat_with, select_all};
@@ -25,16 +25,7 @@ impl<T: NetConnection + Send + 'static> StreamMonitorFlow for T {
 
             log::trace!("monitor: {id} {name} prepared");
 
-            let func = move || {
-                monitor.capture_image().map(|x| {
-                    let width = x.width();
-                    let height = x.height();
-                    let raw = x.into_raw();
-
-                    (Frame::new(width, height, raw), id)
-                })
-            };
-            let stream = repeat_with(func);
+            let stream = repeat_with(get_capture_func(monitor, id));
 
             streams.push(stream);
         }
@@ -73,4 +64,50 @@ impl Frame {
     pub fn new(width: u32, height: u32, raw: Vec<u8>) -> Self {
         Frame { width, height, raw }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn get_capture_func(monitor: Monitor, id: u32) -> impl Fn() -> Result<(Frame, u32), anyhow::Error> {
+    move || {
+        let id = monitor.id()?;
+        let frame = monitor.capture_image().map(|x| {
+            let width = x.width();
+            let height = x.height();
+            let raw = x.into_raw();
+
+            (Frame::new(width, height, raw), id)
+        })?;
+
+        Ok(frame)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn get_capture_func(
+    _monitor: Monitor,
+    id: u32,
+) -> impl Fn() -> Result<(Frame, u32), anyhow::Error> {
+    move || {
+        let monitor = get_monitor(id)?;
+        let frame = monitor.capture_image().map(|x| {
+            let width = x.width();
+            let height = x.height();
+            let raw = x.into_raw();
+
+            (Frame::new(width, height, raw), id)
+        })?;
+
+        Ok(frame)
+    }
+}
+
+fn get_monitor(id: u32) -> Result<Monitor, anyhow::Error> {
+    let monitors = Monitor::all()?;
+    for m in monitors {
+        if m.id()? == id {
+            return Ok(m);
+        }
+    }
+
+    bail!("can't get")
 }

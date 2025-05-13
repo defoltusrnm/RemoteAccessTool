@@ -1,4 +1,5 @@
 use super::commands::{Command, ReadCommand};
+use crate::features::events::*;
 use crate::utils::reading::*;
 use crate::utils::writing::*;
 use anyhow::{Context, bail};
@@ -26,15 +27,16 @@ impl<T: NetConnection + 'static> AuthorizationFlow for T {
             self.write_number(command_id).await?;
 
             let (status, is_fail) = match result {
-                Ok(()) => (&"LOGIN_OK", false),
-                Err(_) => (&"LOGIN_FAIL", true),
+                Ok(()) => (Event::Authenticated, false),
+                Err(_) => (Event::UnAuthenticated, true),
             };
-            self.write_string_with_size(status).await?;
+            self.write_event(status).await?;
 
             if is_fail {
                 bail!("session terminated due to failed login")
             }
         } else {
+            self.write_string_with_size(&"иди нахуй долбаеб").await?;
             bail!("expected login flow, but haven't got it")
         }
 

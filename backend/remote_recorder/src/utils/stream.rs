@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use futures::Stream;
 
 pub trait IntoStream<T: Send + 'static> {
-    fn into_stream(self) -> impl Stream<Item = T>;
+    fn into_stream(self) -> impl Stream<Item = T> + 'static;
 }
 
 impl<T: Send + 'static> IntoStream<T> for Receiver<T> {

@@ -15,6 +15,21 @@
                 HorizontalAlignment="Center"
                 Content="Click" />
         <TextBlock Text="{Binding LoginResult}" />
+        <ItemsControl ItemsSource="{Binding ScreensHolder.Screens}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="{Binding Id}" />
+                        <Image Source="{Binding Image}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </StackPanel>
 
 </Window>

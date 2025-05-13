@@ -24,13 +24,12 @@ impl<T: NetConnection + 'static> AuthorizationFlow for T {
                 .inspect_err(|err| log::trace!("failed to authorize: {err}"))
                 .await;
 
-            self.write_number(command_id).await?;
-
             let (status, is_fail) = match result {
                 Ok(()) => (Event::Authenticated, false),
                 Err(_) => (Event::UnAuthenticated, true),
             };
             self.write_event(status).await?;
+            self.write_number(command_id).await?;
 
             if is_fail {
                 bail!("session terminated due to failed login")

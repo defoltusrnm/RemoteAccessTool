@@ -54,10 +54,24 @@ impl NetReader for SecureNetTcpConnection {
 
 impl NetWriter for SecureNetTcpConnection {
     async fn write(&mut self, buffer: &[u8]) -> Result<(), anyhow::Error> {
-        self.inner_socket
-            .write(buffer)
-            .await
-            .with_context(|| "failed to send to connection")
-            .map(|_| ())
+        log::trace!("sending {0} of bytes", buffer.len());
+
+        let mut total_sent = 0;
+
+        while total_sent < buffer.len() {
+            let sent = self
+                .inner_socket
+                .write(&buffer[total_sent..])
+                .await
+                .with_context(|| "failed to send to connection")?;
+
+            if sent == 0 {
+                return Err(anyhow::anyhow!("connection closed while sending data"));
+            }
+
+            total_sent += sent;
+        }
+
+        Ok(())
     }
 }

@@ -1,8 +1,12 @@
 ﻿using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Drawing;
 using System.Net;
+using System.Net.Mime;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Channels;
 using Microsoft.Extensions.Options;
@@ -17,29 +21,47 @@ public class Remote : IRemote
 
     private Task? _serverWorker;
     private readonly Channel<byte[]> _outboundChannel;
+    private readonly Channel<ScreenEvent> _screenChannel;
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<(IMemoryOwner<byte>, int)>> _taskCompletionSources;
     private readonly RemoteOptions _remoteOptions;
 
     public Remote(IOptions<RemoteOptions> remoteOptions)
     {
         _outboundChannel = Channel.CreateUnbounded<byte[]>();
+        _screenChannel = Channel.CreateUnbounded<ScreenEvent>();
         _taskCompletionSources = new ConcurrentDictionary<uint, TaskCompletionSource<(IMemoryOwner<byte>, int)>>();
         _remoteOptions = remoteOptions.Value;
     }
 
-    public async Task<Result<Empty, Err>> LoginAsync(LoginRequest loginRequest, CancellationToken cancellation = default)
+    public async Task<Result<Empty, Err>> LoginAsync(LoginRequest loginRequest,
+        CancellationToken cancellation = default)
     {
         return await Enqueue(
             Command.Login,
             [loginRequest.Login, loginRequest.Password],
-            s => s is "LOGIN_OK" ? Result.Ok() : Err.Throw<Empty>("PROTO", s.ToString()),
+            s => s switch
+            {
+                [Event.Authenticated] => Result.Ok(),
+                [Event.UnAuthenticated] => Err.Throw<Empty>("UNAUTH", "Unauthenticated"),
+                _ => Err.Throw<Empty>("INTERNAL", "Unknown error"),
+            },
             cancellation
         );
     }
 
+    public async IAsyncEnumerable<ScreenEvent> ReceiveScreenAsync(
+        [EnumeratorCancellation] CancellationToken cancellation = default
+    )
+    {
+        while (await _screenChannel.Reader.WaitToReadAsync(cancellation))
+        {
+            yield return await _screenChannel.Reader.ReadAsync(cancellation);
+        }
+    }
+
     private async Task<T> Enqueue<T>(
         byte command,
-        string[] args, Func<ReadOnlySpan<char>, T> matFunc,
+        string[] args, Func<ReadOnlySpan<byte>, T> matFunc,
         CancellationToken cancellation = default
     )
     {
@@ -57,7 +79,7 @@ public class Remote : IRemote
         var (response, len) = await tsc.Task;
         using (response)
         {
-            return matFunc(Encoding.UTF8.GetString(response.Memory.Span[..len]));
+            return matFunc(response.Memory.Span[..len]);
         }
     }
 
@@ -102,27 +124,66 @@ public class Remote : IRemote
     {
         try
         {
-            var endianBuffer = new Memory<byte>(new byte[1]);
-            var numberBuffer = new Memory<byte>(new byte[sizeof(uint)]);
+            var eventBuffer = new Memory<byte>(new byte[1]);
             while (sslStream.CanRead)
             {
-                await sslStream.ReadNumberAsync(endianBuffer, numberBuffer, cancellation)
-                    .MapOk(x => _taskCompletionSources.TryGetValue(x, out var val)
-                        ? Result<TaskCompletionSource<(IMemoryOwner<byte>, int)>, Err>.Ok(val)
-                        : Err.Throw<TaskCompletionSource<(IMemoryOwner<byte>, int)>>("INTERNAL",
-                            $"Cannot get task for command {x}"))
-                    .WhenOkAsync(async x =>
-                    {
-                        await sslStream.ReadNumberAsync(endianBuffer, numberBuffer, cancellation)
-                            .WhenOkAsync(async y =>
-                            {
-                                var size = (int)y;
-                                var memory = MemoryPool<byte>.Shared.Rent(size);
-                                await sslStream.ReadExactlyAsync(memory.Memory[..size], cancellation);
+                await sslStream.ReadExactlyAsync(eventBuffer, cancellation);
+                if (Event.IsResponse(eventBuffer))
+                {
+                    await sslStream.ReadNumberAsync(cancellation)
+                        .MapOk(x => _taskCompletionSources.TryGetValue(x, out var val)
+                            ? Result<TaskCompletionSource<(IMemoryOwner<byte>, int)>, Err>.Ok(val)
+                            : Err.Throw<TaskCompletionSource<(IMemoryOwner<byte>, int)>>("INTERNAL",
+                                $"Cannot get task for command {x}"))
+                        .WhenOk(x => { x.TrySetResult((new ManagedMemoryOwner(eventBuffer), 1)); });
+                }
 
-                                x.TrySetResult((memory, size));
+                switch (eventBuffer.Span[0])
+                {
+                    case Event.Screen:
+                        var screenId = await sslStream
+                            .ReadNumberAsync(cancellation);
+                        var width = await sslStream
+                            .ReadNumberAsync(cancellation);
+                        var height = await sslStream
+                            .ReadNumberAsync(cancellation);
+
+                        var image = await sslStream.ReadBytesAsync(cancellation);
+
+                        var screenRes = Result.Union(screenId, image, (u, tuple) => (
+                            Id: u,
+                            tuple.Buffer,
+                            tuple.Size
+                        ));
+
+                        var rectRes = Result.Union(width, height, (u, u1) => (
+                            Widht: u,
+                            Height: u1
+                        ));
+
+                        var complete = Result.Union(screenRes, rectRes, (x, y) => (
+                            Screen: x,
+                            Rect: y
+                        ));
+
+                        await complete
+                            .WhenErr(x => { _ = x; })
+                            .WhenOkAsync(async x =>
+                            {
+                                await _screenChannel.Writer.WriteAsync(
+                                    new ScreenEvent(
+                                        x.Screen.Id,
+                                        x.Rect.Widht,
+                                        x.Rect.Height,
+                                        x.Screen.Buffer,
+                                        x.Screen.Size
+                                    ),
+                                    cancellation
+                                );
                             });
-                    });
+
+                        break;
+                }
             }
         }
         catch (Exception e)
@@ -135,9 +196,37 @@ public class Remote : IRemote
     }
 }
 
+file class ManagedMemoryOwner : IMemoryOwner<byte>
+{
+    public ManagedMemoryOwner(Memory<byte> memory)
+    {
+        Memory = memory;
+    }
+
+    public Memory<byte> Memory { get; }
+
+    public void Dispose()
+    {
+    }
+}
+
 file static class Command
 {
     public const byte Login = 1;
+}
+
+file static class Event
+{
+    public const byte Authenticated = 1;
+    public const byte UnAuthenticated = 2;
+    public const byte Screen = 3;
+
+    public static bool IsResponse(Memory<byte> @event) => @event.Span[0] switch
+    {
+        Authenticated => true,
+        UnAuthenticated => true,
+        _ => false
+    };
 }
 
 public class RemoteOptions
@@ -149,17 +238,43 @@ file static class Exts
 {
     public static async Task<Result<uint, Err>> ReadNumberAsync(
         this Stream stream,
-        Memory<byte> endian,
-        Memory<byte> buffer,
         CancellationToken cancellation = default
     )
     {
+        var endian = new Memory<byte>(new byte[1]);
+        var buffer = new Memory<byte>(new byte[4]);
+
         await stream.ReadExactlyAsync(endian, cancellation);
         await stream.ReadExactlyAsync(buffer, cancellation);
 
         return Frame.ToUInt(endian, buffer);
     }
+
+    public static Task<Result<Package, Err>> ReadBytesAsync(
+        this Stream stream,
+        CancellationToken cancellation = default
+    ) => stream.ReadNumberAsync(cancellation: cancellation).MapOkAsync(async x =>
+    {
+        var memoryOwner = MemoryPool<byte>.Shared.Rent((int)x);
+        var memory = memoryOwner.Memory[..(int)x];
+
+        var totalRead = 0;
+        while (totalRead < x)
+        {
+            int bytesRead = await stream.ReadAsync(memory.Slice(totalRead, (int)x - totalRead), cancellation);
+            if (bytesRead == 0)
+            {
+                return Err.Throw<Package>("INTERNAL", "Unexpected end of stream");
+            }
+
+            totalRead += bytesRead;
+        }
+
+        return Result<Package, Err>.Ok(new Package(memoryOwner, (int)x));
+    });
 }
+
+file record struct Package(IMemoryOwner<byte> Buffer, int Size);
 
 file static class Frame
 {

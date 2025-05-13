@@ -13,6 +13,7 @@ public partial class RemoteViewModel : ObservableObject
     private readonly IRemote _remote;
 
     [ObservableProperty] private string _loginResult = "haven't tried";
+    [ObservableProperty] private ScreensViewModel _screensHolder = new();
 
     public RemoteViewModel(IOptions<RemoteOptions> remoteOptions, IRemote remote)
     {
@@ -26,7 +27,12 @@ public partial class RemoteViewModel : ObservableObject
 
     private async Task OnLogin()
     {
-        await _remote.LoginAsync(new LoginRequest("login", "pwd"))
+        await _remote.LoginAsync(new LoginRequest("123", "123"))
             .Fold(_ => LoginResult = "Authed", err => LoginResult = err.Message);
+
+        await foreach (var image in _remote.ReceiveScreenAsync())
+        {
+            ScreensHolder.UpdateView(image);
+        }
     }
 }

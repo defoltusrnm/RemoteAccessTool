@@ -3,7 +3,7 @@ use stream_throttle::{ThrottlePool, ThrottleRate, ThrottledStream};
 
 use crate::features::events::WriteEvent;
 use crate::utils::writing::NumberWrite;
-use anyhow::{Context, bail};
+use anyhow::bail;
 use flex_net_core::networking::connections::NetConnection;
 use futures::StreamExt;
 use futures::stream::{repeat_with, select_all};
@@ -16,17 +16,11 @@ impl<T: NetConnection + Send + 'static> StreamMonitorFlow for T {
     async fn stream_screen(&mut self) -> Result<(), anyhow::Error> {
         log::trace!("starting to stream available monitors");
 
-        let monitors = Monitor::all().with_context(|| "failed to get monitors")?;
-        let mut streams = Vec::with_capacity(monitors.len());
+        let callbacks = get_capture_callbacks()?;
+        let mut streams = Vec::with_capacity(callbacks.len());
 
-        for monitor in monitors {
-            let id = monitor.id().with_context(|| "failed to get monitor id")?;
-            let name = monitor.name().with_context(|| "failed to get monitor id")?;
-
-            log::trace!("monitor: {id} {name} prepared");
-
-            let stream = repeat_with(get_capture_func(monitor, id));
-
+        for func in callbacks {
+            let stream = repeat_with(func);
             streams.push(stream);
         }
 
@@ -67,38 +61,59 @@ impl Frame {
 }
 
 #[cfg(target_os = "linux")]
-fn get_capture_func(monitor: Monitor, id: u32) -> impl Fn() -> Result<(Frame, u32), anyhow::Error> {
-    move || {
-        let id = monitor.id()?;
-        let frame = monitor.capture_image().map(|x| {
-            let width = x.width();
-            let height = x.height();
-            let raw = x.into_raw();
+fn get_capture_callbacks()
+-> Result<Vec<impl Fn() -> Result<(Frame, u32), anyhow::Error>>, anyhow::Error> {
+    let monitors = Monitor::all().with_context(|| "failed to get monitors")?;
+    let mut streams = Vec::with_capacity(monitors.len());
 
-            (Frame::new(width, height, raw), id)
-        })?;
+    for monitor in monitors {
+        let id = monitor.id().with_context(|| "failed to get monitor id")?;
+        let name = monitor.name().with_context(|| "failed to get monitor id")?;
 
-        Ok(frame)
+        log::trace!("monitor: {id} {name} prepared");
+
+        streams.push(move || {
+            let id = monitor.id()?;
+            let frame = monitor.capture_image().map(|x| {
+                let width = x.width();
+                let height = x.height();
+                let raw = x.into_raw();
+
+                (Frame::new(width, height, raw), id)
+            })?;
+
+            Ok(frame)
+        });
     }
+
+    Ok(streams)
 }
 
 #[cfg(target_os = "windows")]
-fn get_capture_func(
-    _monitor: Monitor,
-    id: u32,
-) -> impl Fn() -> Result<(Frame, u32), anyhow::Error> {
-    move || {
-        let monitor = get_monitor(id)?;
-        let frame = monitor.capture_image().map(|x| {
-            let width = x.width();
-            let height = x.height();
-            let raw = x.into_raw();
+fn get_capture_callbacks()
+-> Result<Vec<impl Fn() -> Result<(Frame, u32), anyhow::Error>>, anyhow::Error> {
+    let monitors = Monitor::all()?;
+    let ids = monitors.iter().map(|x| x.id());
+    let mut streams = Vec::with_capacity(ids.len());
 
-            (Frame::new(width, height, raw), id)
-        })?;
+    for id in ids {
+        let id_res = id?;
 
-        Ok(frame)
+        streams.push(move || {
+            let monitor = get_monitor(id_res)?;
+            let frame = monitor.capture_image().map(|x| {
+                let width = x.width();
+                let height = x.height();
+                let raw = x.into_raw();
+
+                (Frame::new(width, height, raw), id_res)
+            })?;
+
+            Ok(frame)
+        });
     }
+
+    Ok(streams)
 }
 
 #[cfg(target_os = "windows")]

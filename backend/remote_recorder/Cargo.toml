@@ -15,3 +15,4 @@ flex_server_tcp = { path = "../flex_server_tcp" }
 dotenv = "0.15.0"
 log4rs = "1.3.0"
 log = { workspace = true }
+stream_throttle = "0.5.1"

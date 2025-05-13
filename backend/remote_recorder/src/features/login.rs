@@ -1,13 +1,13 @@
-use super::commands::{Command, ReadCommand};
-use crate::features::events::*;
-use crate::utils::reading::*;
-use crate::utils::writing::*;
 use anyhow::{Context, bail};
 use flex_net_core::networking::connections::NetConnection;
 use futures::TryFutureExt;
-use std::env;
 
-use super::protocol_traits::AuthorizationFlow;
+use super::{
+    commands::{Command, ReadCommand},
+    protocol_traits::AuthorizationFlow,
+};
+use crate::utils::writing::*;
+use crate::{features::events::*, utils::reading::*};
 
 impl<T: NetConnection + 'static> AuthorizationFlow for T {
     async fn authorize(&mut self) -> Result<(), anyhow::Error> {
@@ -45,8 +45,8 @@ impl<T: NetConnection + 'static> AuthorizationFlow for T {
 }
 
 async fn check_credentials(login: String, password: String) -> Result<(), anyhow::Error> {
-    let expected_login = env::var("LOGIN").with_context(|| "cannot get login")?;
-    let expected_password = env::var("PASSWORD").with_context(|| "cannot get login")?;
+    let expected_login = std::env::var("LOGIN").with_context(|| "cannot get login")?;
+    let expected_password = std::env::var("PASSWORD").with_context(|| "cannot get login")?;
 
     if expected_login == login && expected_password == password {
         Ok(())

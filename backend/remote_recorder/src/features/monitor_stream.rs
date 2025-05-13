@@ -3,7 +3,6 @@ use stream_throttle::{ThrottlePool, ThrottleRate, ThrottledStream};
 
 use crate::features::events::WriteEvent;
 use crate::utils::writing::NumberWrite;
-use anyhow::bail;
 use flex_net_core::networking::connections::NetConnection;
 use futures::StreamExt;
 use futures::stream::{repeat_with, select_all};
@@ -63,12 +62,12 @@ impl Frame {
 #[cfg(target_os = "linux")]
 fn get_capture_callbacks()
 -> Result<Vec<impl Fn() -> Result<(Frame, u32), anyhow::Error>>, anyhow::Error> {
-    let monitors = Monitor::all().with_context(|| "failed to get monitors")?;
+    let monitors = Monitor::all()?;
     let mut streams = Vec::with_capacity(monitors.len());
 
     for monitor in monitors {
-        let id = monitor.id().with_context(|| "failed to get monitor id")?;
-        let name = monitor.name().with_context(|| "failed to get monitor id")?;
+        let id = monitor.id()?;
+        let name = monitor.name()?;
 
         log::trace!("monitor: {id} {name} prepared");
 
@@ -114,16 +113,4 @@ fn get_capture_callbacks()
     }
 
     Ok(streams)
-}
-
-#[cfg(target_os = "windows")]
-fn get_monitor(id: u32) -> Result<Monitor, anyhow::Error> {
-    let monitors = Monitor::all()?;
-    for m in monitors {
-        if m.id()? == id {
-            return Ok(m);
-        }
-    }
-
-    bail!("can't get")
 }

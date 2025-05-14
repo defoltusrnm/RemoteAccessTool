@@ -114,3 +114,15 @@ fn get_capture_callbacks()
 
     Ok(streams)
 }
+
+#[cfg(target_os = "windows")]
+fn get_monitor(id: u32) -> Result<Monitor, anyhow::Error> {
+    let monitors = Monitor::all()?;
+    for m in monitors {
+        if m.id()? == id {
+            return Ok(m);
+        }
+    }
+
+    anyhow::bail!("can't get")
+}

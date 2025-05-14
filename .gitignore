@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# sosi ochko
+**/MegaShit.RemoteAccessTool.sln
+
 **/.idea
 **/target
 **/.env

@@ -100,7 +100,7 @@ fn get_capture_callbacks()
 
         streams.push(move || {
             let monitor = get_monitor(id_res)?;
-            let frame = monitor.capture_image().map(|x| {
+            let frame= monitor.capture_image().map(|x| {
                 let width = x.width();
                 let height = x.height();
                 let raw = x.into_raw();

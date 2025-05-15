@@ -89,6 +89,7 @@ impl WriterLock for SecureNetTcpConnection {
             inner_write: self,
         };
 
+        log::trace!("transaction started");
         locked
     }
 }
@@ -106,6 +107,7 @@ impl<'a, T: NetWriter> NetWriter for ImplLockedWriter<'a, T> {
 
 impl<'a, T: NetWriter> LockedWriter for ImplLockedWriter<'a, T> {
     fn release(mut self) {
+        log::trace!("transaction ended");
         self.guard.take();
     }
 }

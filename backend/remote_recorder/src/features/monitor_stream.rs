@@ -3,7 +3,7 @@ use stream_throttle::{ThrottlePool, ThrottleRate, ThrottledStream};
 
 use crate::features::events::WriteEvent;
 use crate::utils::writing::NumberWrite;
-use flex_net_core::networking::connections::NetConnection;
+use flex_net_core::networking::connections::{LockedWriter, NetConnection, NetWriter};
 use futures::StreamExt;
 use futures::stream::{repeat_with, select_all};
 use xcap::Monitor;
@@ -29,16 +29,19 @@ impl<T: NetConnection + Send + 'static> StreamMonitorFlow for T {
         let mut multiplexer = select_all(streams).throttle(pool);
 
         while let Some(Ok((frame, id))) = multiplexer.next().await {
-            self.write_event(Event::Screen).await?;
-            self.write_number(id).await?;
-            self.write_number(frame.width).await?;
-            self.write_number(frame.height).await?;
+            let mut lock = self.lock_write().await;
+
+            lock.write_event(Event::Screen).await?;
+            lock.write_number(id).await?;
+            lock.write_number(frame.width).await?;
+            lock.write_number(frame.height).await?;
 
             let frame_len: u32 = frame.raw.len().try_into()?;
-            self.write_number(frame_len).await?;
+            lock.write_number(frame_len).await?;
 
-            self.write(frame.raw.as_slice()).await?;
+            lock.write(frame.raw.as_slice()).await?;
 
+            lock.release();
             log::trace!("data send");
         }
 
@@ -100,7 +103,7 @@ fn get_capture_callbacks()
 
         streams.push(move || {
             let monitor = get_monitor(id_res)?;
-            let frame= monitor.capture_image().map(|x| {
+            let frame = monitor.capture_image().map(|x| {
                 let width = x.width();
                 let height = x.height();
                 let raw = x.into_raw();

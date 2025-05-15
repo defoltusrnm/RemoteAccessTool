@@ -14,7 +14,7 @@ pub trait WriteEvent {
     ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
 }
 
-impl<T: NetWriter + 'static> WriteEvent for T {
+impl<T: NetWriter> WriteEvent for T {
     async fn write_event(&mut self, event: Event) -> Result<(), anyhow::Error> {
         let byte = match event {
             Event::Authenticated => 1u8,

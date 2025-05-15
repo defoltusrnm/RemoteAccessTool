@@ -22,4 +22,12 @@ where
     ) -> impl Future<Output = Result<NetMessage, anyhow::Error>> + Send;
 }
 
-pub trait NetConnection: NetReader + NetWriter {}
+pub trait NetConnection: NetReader + NetWriter + WriterLock {}
+
+pub trait WriterLock {
+    fn lock_write<'a>(&'a mut self) -> impl Future<Output = impl LockedWriter> + Send;
+}
+
+pub trait LockedWriter: NetWriter {
+    fn release(self);
+}

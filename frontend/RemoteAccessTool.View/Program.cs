@@ -4,6 +4,7 @@ using Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using RemoteAccessTool.Application;
 using RemoteAccessTool.Application.Remote.Interfaces;
+using RemoteAccessTool.Infrastructure.Audio.Primitives;
 using RemoteAccessTool.Infrastructure.Extensions;
 using RemoteAccessTool.Infrastructure.Remote.Primitives;
 using RemoteAccessTool.View.Views.Windows;
@@ -15,6 +16,8 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        var d = new PipewireAudioDriver();
+        
         var assembly = typeof(Program).Assembly;
 
         var builder = BuilderEx.CreateDefaultBuilder(AppBuilder

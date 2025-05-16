@@ -19,8 +19,6 @@ const CHANNELS: u8 = 2;
 pub fn create_audio_stream() -> Result<RepeatWith<impl FnMut() -> Vec<u8>>, anyhow::Error> {
     use std::sync::Arc;
 
-    use futures::lock::Mutex;
-
     let mut mainloop = Mainloop::new().with_context(|| "fail main loop")?;
     let mut proplist = Proplist::new().with_context(|| "failed prop list")?;
     proplist
@@ -61,12 +59,14 @@ pub fn create_audio_stream() -> Result<RepeatWith<impl FnMut() -> Vec<u8>>, anyh
     Ok(s)
 }
 
+#[cfg(target_os = "linux")]
 #[derive(Clone)]
 struct AudioSrc {
     mainloop: Arc<Mutex<Mainloop>>,
     stream: Arc<Mutex<Stream>>,
 }
 
+#[cfg(target_os = "linux")]
 impl AudioSrc {
     fn get_audio(self) -> Vec<u8> {
         loop {
@@ -82,4 +82,5 @@ impl AudioSrc {
     }
 }
 
+#[cfg(target_os = "linux")]
 unsafe impl Send for AudioSrc {}

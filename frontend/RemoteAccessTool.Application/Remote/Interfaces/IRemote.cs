@@ -12,3 +12,5 @@ public interface IRemote
 public sealed record LoginRequest(string Login, string Password);
 
 public record struct ScreenEvent(uint Id, uint Width, uint Height, IMemoryOwner<byte> Image, int Size);
+
+public record struct AudioEvent(IMemoryOwner<float> Sample);

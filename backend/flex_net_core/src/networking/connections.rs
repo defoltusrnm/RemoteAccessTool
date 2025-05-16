@@ -25,7 +25,7 @@ where
 pub trait NetConnection: NetReader + NetWriter + WriterLock {}
 
 pub trait WriterLock {
-    fn lock_write<'a>(&'a mut self) -> impl Future<Output = impl LockedWriter> + Send;
+    fn lock_write<'a>(&'a mut self) -> impl Future<Output = impl LockedWriter + Send> + Send;
 }
 
 pub trait LockedWriter: NetWriter {

@@ -22,6 +22,7 @@ public class Remote : IRemote
     private Task? _serverWorker;
     private readonly Channel<byte[]> _outboundChannel;
     private readonly Channel<ScreenEvent> _screenChannel;
+    private readonly Channel<AudioEvent> _audioChannel;
     private readonly ConcurrentDictionary<uint, TaskCompletionSource<(IMemoryOwner<byte>, int)>> _taskCompletionSources;
     private readonly RemoteOptions _remoteOptions;
 
@@ -29,6 +30,7 @@ public class Remote : IRemote
     {
         _outboundChannel = Channel.CreateUnbounded<byte[]>();
         _screenChannel = Channel.CreateUnbounded<ScreenEvent>();
+        _audioChannel = Channel.CreateUnbounded<AudioEvent>();
         _taskCompletionSources = new ConcurrentDictionary<uint, TaskCompletionSource<(IMemoryOwner<byte>, int)>>();
         _remoteOptions = remoteOptions.Value;
     }
@@ -141,47 +143,15 @@ public class Remote : IRemote
                 switch (eventBuffer.Span[0])
                 {
                     case Event.Screen:
-                        var screenId = await sslStream
-                            .ReadNumberAsync(cancellation);
-                        var width = await sslStream
-                            .ReadNumberAsync(cancellation);
-                        var height = await sslStream
-                            .ReadNumberAsync(cancellation);
+                        await sslStream
+                            .ReadScreenAsync(cancellation)
+                            .WhenOkAsync(async x => await _screenChannel.Writer.WriteAsync(x, cancellation));
+                        break;
+                    case Event.Audio:
+                        var sampleLength = await sslStream.ReadNumberAsync(cancellation: cancellation);
 
-                        var image = await sslStream.ReadBytesAsync(cancellation);
-
-                        var screenRes = Result.Union(screenId, image, (u, tuple) => (
-                            Id: u,
-                            tuple.Buffer,
-                            tuple.Size
-                        ));
-
-                        var rectRes = Result.Union(width, height, (u, u1) => (
-                            Widht: u,
-                            Height: u1
-                        ));
-
-                        var complete = Result.Union(screenRes, rectRes, (x, y) => (
-                            Screen: x,
-                            Rect: y
-                        ));
-
-                        await complete
-                            .WhenErr(x => { _ = x; })
-                            .WhenOkAsync(async x =>
-                            {
-                                await _screenChannel.Writer.WriteAsync(
-                                    new ScreenEvent(
-                                        x.Screen.Id,
-                                        x.Rect.Widht,
-                                        x.Rect.Height,
-                                        x.Screen.Buffer,
-                                        x.Screen.Size
-                                    ),
-                                    cancellation
-                                );
-                            });
-
+                        _ = sampleLength;
+                        
                         break;
                 }
             }
@@ -220,6 +190,7 @@ file static class Event
     public const byte Authenticated = 1;
     public const byte UnAuthenticated = 2;
     public const byte Screen = 3;
+    public const byte Audio = 4;
 
     public static bool IsResponse(Memory<byte> @event) => @event.Span[0] switch
     {
@@ -272,6 +243,40 @@ file static class Exts
 
         return Result<Package, Err>.Ok(new Package(memoryOwner, (int)x));
     });
+
+    public static async Task<Result<ScreenEvent, Err>> ReadScreenAsync(
+        this SslStream sslStream,
+        CancellationToken cancellation
+    )
+    {
+        var screenId = await sslStream.ReadNumberAsync(cancellation);
+        var width = await sslStream.ReadNumberAsync(cancellation);
+        var height = await sslStream.ReadNumberAsync(cancellation);
+        var image = await sslStream.ReadBytesAsync(cancellation);
+
+        var screenRes = Result.Union(screenId, image, (u, tuple) => (
+            Id: u,
+            tuple.Buffer,
+            tuple.Size
+        ));
+
+        var rectRes = Result.Union(width, height, (u, u1) => (
+            Widht: u,
+            Height: u1
+        ));
+
+        var complete = Result.Union(screenRes, rectRes, (x, y) => (
+            Screen: x,
+            Rect: y
+        ));
+        return complete.MapOk(x => new ScreenEvent(
+            x.Screen.Id,
+            x.Rect.Widht,
+            x.Rect.Height,
+            x.Screen.Buffer,
+            x.Screen.Size
+        ));
+    }
 }
 
 file record struct Package(IMemoryOwner<byte> Buffer, int Size);

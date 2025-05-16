@@ -1,8 +1,8 @@
 pub mod features;
 pub mod utils;
+pub mod media;
 
-use crate::features::protocol_traits::StreamMonitorFlow;
-use features::protocol_traits::AuthorizationFlow;
+use features::protocol_traits::*;
 use flex_net_core::{
     networking::connections::NetConnection, utils::env_host_source::EnvEndpointAddressSrc,
 };
@@ -39,6 +39,7 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
     async fn handle(mut connection: impl NetConnection + 'static) -> Result<(), anyhow::Error> {
         connection.authorize().await?;
 
+        connection.stream_audio().await?;
         connection.stream_screen().await?;
 
         Ok(())

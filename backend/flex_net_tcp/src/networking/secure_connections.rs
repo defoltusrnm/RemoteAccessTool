@@ -83,6 +83,7 @@ impl NetWriter for SecureNetTcpConnection {
 
 impl WriterLock for SecureNetTcpConnection {
     async fn lock_write<'a>(&'a mut self) -> impl LockedWriter {
+        log::trace!("awaiting to acquire write_lock");
         let lock_fut = self.inner_write_lock.clone().lock_owned().await;
         let locked = ImplLockedWriter::<'a, _> {
             guard: Some(lock_fut),

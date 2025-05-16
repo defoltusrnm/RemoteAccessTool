@@ -5,6 +5,7 @@ pub enum Event {
     Authenticated,
     UnAuthenticated,
     Screen,
+    Audio,
 }
 
 pub trait WriteEvent {
@@ -20,6 +21,7 @@ impl<T: NetWriter> WriteEvent for T {
             Event::Authenticated => 1u8,
             Event::UnAuthenticated => 2u8,
             Event::Screen => 3u8,
+            Event::Audio => 4u8,
         };
 
         self.write(&[byte]).await?;

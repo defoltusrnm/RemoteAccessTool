@@ -1,6 +1,6 @@
 pub mod features;
-pub mod utils;
 pub mod media;
+pub mod utils;
 
 use features::protocol_traits::*;
 use flex_net_core::{

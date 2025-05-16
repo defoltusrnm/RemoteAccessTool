@@ -16,4 +16,4 @@ dotenv = "0.15.0"
 log4rs = "1.3.0"
 log = { workspace = true }
 stream_throttle = "0.5.1"
-libpulse-binding = "2.30.1"
+pipewire = "0.8.0"

@@ -12,17 +12,17 @@ impl<T: NetConnection> StreamAudioFlow for T {
     async fn stream_audio(&mut self) -> Result<(), anyhow::Error> {
         let mut audio_stream = create_audio_stream()?;
 
-        while let Some(data) = audio_stream.next().await {
-            let mut lock = self.lock_write().await;
+        // while let Some(data) = audio_stream.next().await {
+        //     let mut lock = self.lock_write().await;
 
-            lock.write_event(Event::Audio).await?;
+        //     lock.write_event(Event::Audio).await?;
 
-            let buff_len: u32 = data.len().try_into()?;
-            lock.write_number(buff_len).await?;
-            lock.write(&data).await?;
+        //     let buff_len: u32 = data.len().try_into()?;
+        //     lock.write_number(buff_len).await?;
+        //     lock.write(&data).await?;
 
-            lock.release();
-        }
+        //     lock.release();
+        // }
 
         Ok(())
     }

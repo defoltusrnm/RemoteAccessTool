@@ -1,4 +1,3 @@
-# Compiler and flags
 CC = clang
 CFLAGS = -fPIC -Wall -Wextra -O2
 LDFLAGS = -shared
@@ -9,7 +8,6 @@ PIPEWIRE_LIBS = $(shell $(PKG_CONFIG) --libs libpipewire-0.3)
 
 OBJ = $(SRC:.c=.o)
 
-# Build rules
 pack: $(TARGET)
 
 $(TARGET): $(OBJ)

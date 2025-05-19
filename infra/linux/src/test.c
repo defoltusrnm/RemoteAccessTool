@@ -1,49 +1,141 @@
+#include <stdio.h>
+#include <errno.h>
+#include <math.h>
+#include <signal.h>
+
+#include <spa/param/audio/format-utils.h>
+
 #include <pipewire/pipewire.h>
- 
-static void registry_event_global(void *data, uint32_t id,
-                uint32_t permissions, const char *type, uint32_t version,
-                const struct spa_dict *props)
+
+struct data
 {
-        printf("object: id:%u type:%s/%d\n", id, type, version);
-}
- 
-static const struct pw_registry_events registry_events = {
-        PW_VERSION_REGISTRY_EVENTS,
-        .global = registry_event_global,
+    struct pw_main_loop *loop;
+    struct pw_stream *stream;
+
+    struct spa_audio_info format;
+    unsigned move : 1;
 };
- 
+
+static void on_process(void *userdata)
+{
+    struct data *data = userdata;
+    struct pw_buffer *b;
+    struct spa_buffer *buf;
+    float *samples, max;
+    uint32_t c, n, n_channels, n_samples, peak;
+
+    if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
+    {
+        pw_log_warn("out of buffers: %m");
+        return;
+    }
+
+    buf = b->buffer;
+    if ((samples = buf->datas[0].data) == NULL)
+        return;
+
+    n_channels = data->format.info.raw.channels;
+    n_samples = buf->datas[0].chunk->size / sizeof(float);
+
+    if (data->move)
+        fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
+    fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
+    for (c = 0; c < data->format.info.raw.channels; c++)
+    {
+        max = 0.0f;
+        for (n = c; n < n_samples; n += n_channels)
+            max = fmaxf(max, fabsf(samples[n]));
+
+        peak = (uint32_t)SPA_CLAMPF(max * 30, 0.f, 39.f);
+
+        fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
+                c, peak + 1, "*", 40 - peak, "", max);
+    }
+    data->move = true;
+    fflush(stdout);
+
+    pw_stream_queue_buffer(data->stream, b);
+}
+
+static void on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
+{
+    struct data *data = _data;
+
+    if (param == NULL || id != SPA_PARAM_Format)
+        return;
+
+    if (spa_format_parse(param, &data->format.media_type, &data->format.media_subtype) < 0)
+        return;
+
+    if (data->format.media_type != SPA_MEDIA_TYPE_audio ||
+        data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+        return;
+
+    spa_format_audio_raw_parse(param, &data->format.info.raw);
+
+    fprintf(stdout, "capturing rate:%d channels:%d\n",
+            data->format.info.raw.rate, data->format.info.raw.channels);
+}
+
+static const struct pw_stream_events stream_events = {
+    PW_VERSION_STREAM_EVENTS,
+    .param_changed = on_stream_param_changed,
+    .process = on_process,
+};
+
+static void do_quit(void *userdata, int signal_number)
+{
+    struct data *data = userdata;
+    pw_main_loop_quit(data->loop);
+}
+
 int main(int argc, char *argv[])
 {
-        struct pw_main_loop *loop;
-        struct pw_context *context;
-        struct pw_core *core;
-        struct pw_registry *registry;
-        struct spa_hook registry_listener;
- 
-        pw_init(&argc, &argv);
- 
-        loop = pw_main_loop_new(NULL /* properties */);
-        context = pw_context_new(pw_main_loop_get_loop(loop),
-                        NULL /* properties */,
-                        0 /* user_data size */);
- 
-        core = pw_context_connect(context,
-                        NULL /* properties */,
-                        0 /* user_data size */);
- 
-        registry = pw_core_get_registry(core, PW_VERSION_REGISTRY,
-                        0 /* user_data size */);
- 
-        spa_zero(registry_listener);
-        pw_registry_add_listener(registry, &registry_listener,
-                                       &registry_events, NULL);
- 
-        pw_main_loop_run(loop);
- 
-        pw_proxy_destroy((struct pw_proxy*)registry);
-        pw_core_disconnect(core);
-        pw_context_destroy(context);
-        pw_main_loop_destroy(loop);
- 
-        return 0;
+    struct data data = {
+        0,
+    };
+    const struct spa_pod *params[1];
+    uint8_t buffer[1024];
+    struct pw_properties *props;
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+    pw_init(&argc, &argv);
+
+    data.loop = pw_main_loop_new(NULL);
+
+    pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGINT, do_quit, &data);
+    pw_loop_add_signal(pw_main_loop_get_loop(data.loop), SIGTERM, do_quit, &data);
+
+    props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
+                              PW_KEY_MEDIA_CATEGORY, "Capture",
+                              PW_KEY_MEDIA_ROLE, "Music",
+                              NULL);
+    pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+
+    data.stream = pw_stream_new_simple(
+        pw_main_loop_get_loop(data.loop),
+        "audio-capture",
+        props,
+        &stream_events,
+        &data);
+
+    params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+                                           &SPA_AUDIO_INFO_RAW_INIT(
+                                                   .format = SPA_AUDIO_FORMAT_F32));
+
+    pw_stream_connect(data.stream,
+                      PW_DIRECTION_INPUT,
+                      PW_ID_ANY,
+                      PW_STREAM_FLAG_AUTOCONNECT |
+                          PW_STREAM_FLAG_MAP_BUFFERS |
+                          PW_STREAM_FLAG_RT_PROCESS,
+                      params, 1);
+
+    pw_main_loop_run(data.loop);
+
+    pw_stream_destroy(data.stream);
+    pw_main_loop_destroy(data.loop);
+    pw_deinit();
+
+    return 0;
 }

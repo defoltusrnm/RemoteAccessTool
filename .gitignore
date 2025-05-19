@@ -17,6 +17,8 @@
 
 **/*.o
 **/*.so
+# c test files
+**/exec
 
 # User-specific files
 *.rsuser

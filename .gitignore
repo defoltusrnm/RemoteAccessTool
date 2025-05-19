@@ -15,6 +15,9 @@
 **/Cargo.lock
 **/.certs
 
+**/*.o
+**/*.so
+
 # User-specific files
 *.rsuser
 *.suo

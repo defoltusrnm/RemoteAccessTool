@@ -16,8 +16,6 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        var d = new PipewireAudioDriver();
-        
         var assembly = typeof(Program).Assembly;
 
         var builder = BuilderEx.CreateDefaultBuilder(AppBuilder

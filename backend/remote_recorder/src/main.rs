@@ -39,7 +39,7 @@ impl ConnectionHandler for ProcessRemoteAccessConnection {
     async fn handle(mut connection: impl NetConnection + 'static) -> Result<(), anyhow::Error> {
         connection.authorize().await?;
 
-        connection.stream_audio().await?;
+        // connection.stream_audio().await?;
         connection.stream_screen().await?;
 
         Ok(())

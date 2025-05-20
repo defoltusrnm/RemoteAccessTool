@@ -38,7 +38,10 @@ static void on_process(void *userdata)
     n_samples = buf->datas[0].chunk->size / sizeof(float);
 
     if (data->move)
+    {
         fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
+    }
+
     fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
     for (c = 0; c < data->format.info.raw.channels; c++)
     {
@@ -62,14 +65,20 @@ static void on_stream_param_changed(void *_data, uint32_t id, const struct spa_p
     struct data *data = _data;
 
     if (param == NULL || id != SPA_PARAM_Format)
+    {
         return;
+    }
 
     if (spa_format_parse(param, &data->format.media_type, &data->format.media_subtype) < 0)
+    {
         return;
+    }
 
     if (data->format.media_type != SPA_MEDIA_TYPE_audio ||
         data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+    {
         return;
+    }
 
     spa_format_audio_raw_parse(param, &data->format.info.raw);
 

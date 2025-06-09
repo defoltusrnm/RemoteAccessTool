@@ -2,7 +2,7 @@
 name = "remote_recorder"
 version = "0.1.0"
 edition = "2024"
-build="build.rs"
+build = "build.rs"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -21,3 +21,4 @@ pipewire = "0.8.0"
 
 [build-dependencies]
 cc = "1.2.26"
+pkg-config = "0.3.32"

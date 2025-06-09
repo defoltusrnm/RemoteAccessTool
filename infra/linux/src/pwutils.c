@@ -24,8 +24,6 @@ static void on_process(void *userdata)
     struct data *data = userdata;
     struct pw_buffer *b;
     struct spa_buffer *buf;
-    float *samples, max;
-    uint32_t c, n, n_channels, n_samples, peak;
 
     if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
     {
@@ -33,32 +31,6 @@ static void on_process(void *userdata)
         return;
     }
 
-    // buf = b->buffer;
-    // if ((samples = buf->datas[0].data) == NULL)
-    //     return;
-
-    // n_channels = data->format.info.raw.channels;
-    // n_samples = buf->datas[0].chunk->size / sizeof(float);
-
-    // if (data->move)
-    // {
-    //     fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
-    // }
-
-    // fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
-    // for (c = 0; c < data->format.info.raw.channels; c++)
-    // {
-    //     max = 0.0f;
-    //     for (n = c; n < n_samples; n += n_channels)
-    //         max = fmaxf(max, fabsf(samples[n]));
-
-    //     peak = (uint32_t)SPA_CLAMPF(max * 30, 0.f, 39.f);
-
-    //     fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
-    //             c, peak + 1, "*", 40 - peak, "", max);
-    // }
-    // data->move = true;
-    // fflush(stdout);
     data->fn(123);
 
     pw_stream_queue_buffer(data->stream, b);

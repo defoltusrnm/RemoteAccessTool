@@ -1,10 +1,13 @@
 fn main() {
     const PATH: &str = "../../infra/linux/src/pwutils.c";
 
+    let pipewire = pkg_config::Config::new()
+        .probe("libpipewire-0.3")
+        .expect("PipeWire dev files not found");
+
     cc::Build::new()
         .file(PATH)
-        .include("/usr/include/pipewire-0.3")
-        .include("/usr/include/spa-0.2")
+        .includes(pipewire.include_paths)
         .compile("pwutils");
 
     println!("cargo:rustc-link-lib=pipewire-0.3");

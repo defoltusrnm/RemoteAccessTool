@@ -7,15 +7,20 @@
 
 #include <pipewire/pipewire.h>
 
-typedef void (*callback)(int);
+struct callback_args
+{
+    struct pw_stream *stream;
+    struct pw_buffer *buffer;
+    struct spa_audio_info *format;
+};
+
+typedef void (*callback)(struct callback_args *buffer);
 
 struct data
 {
     struct pw_main_loop *loop;
     struct pw_stream *stream;
-
     struct spa_audio_info format;
-    unsigned move : 1;
     callback fn;
 };
 
@@ -23,7 +28,6 @@ static void on_process(void *userdata)
 {
     struct data *data = userdata;
     struct pw_buffer *b;
-    struct spa_buffer *buf;
 
     if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL)
     {
@@ -31,7 +35,12 @@ static void on_process(void *userdata)
         return;
     }
 
-    data->fn(123);
+    printf("sending data to callback\n");
+    struct callback_args args = {
+        .stream = data->stream,
+        .buffer = b,
+        .format = &data->format};
+    data->fn(&args);
 
     pw_stream_queue_buffer(data->stream, b);
 }

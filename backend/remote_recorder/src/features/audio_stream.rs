@@ -1,17 +1,9 @@
-use flex_net_core::networking::connections::{LockedWriter, NetConnection, NetWriter};
-use futures::StreamExt;
+use flex_net_core::networking::connections::NetConnection;
 
-use crate::{media::audio::create_audio_stream, utils::writing::NumberWrite};
-
-use super::{
-    events::{Event, WriteEvent},
-    protocol_traits::StreamAudioFlow,
-};
+use super::protocol_traits::StreamAudioFlow;
 
 impl<T: NetConnection> StreamAudioFlow for T {
     async fn stream_audio(&mut self) -> Result<(), anyhow::Error> {
-        let mut audio_stream = create_audio_stream()?;
-
         // while let Some(data) = audio_stream.next().await {
         //     let mut lock = self.lock_write().await;
 

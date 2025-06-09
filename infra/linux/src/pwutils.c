@@ -7,6 +7,8 @@
 
 #include <pipewire/pipewire.h>
 
+typedef void (*callback)(int);
+
 struct data
 {
     struct pw_main_loop *loop;
@@ -14,6 +16,7 @@ struct data
 
     struct spa_audio_info format;
     unsigned move : 1;
+    callback fn;
 };
 
 static void on_process(void *userdata)
@@ -30,32 +33,33 @@ static void on_process(void *userdata)
         return;
     }
 
-    buf = b->buffer;
-    if ((samples = buf->datas[0].data) == NULL)
-        return;
+    // buf = b->buffer;
+    // if ((samples = buf->datas[0].data) == NULL)
+    //     return;
 
-    n_channels = data->format.info.raw.channels;
-    n_samples = buf->datas[0].chunk->size / sizeof(float);
+    // n_channels = data->format.info.raw.channels;
+    // n_samples = buf->datas[0].chunk->size / sizeof(float);
 
-    if (data->move)
-    {
-        fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
-    }
+    // if (data->move)
+    // {
+    //     fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
+    // }
 
-    fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
-    for (c = 0; c < data->format.info.raw.channels; c++)
-    {
-        max = 0.0f;
-        for (n = c; n < n_samples; n += n_channels)
-            max = fmaxf(max, fabsf(samples[n]));
+    // fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
+    // for (c = 0; c < data->format.info.raw.channels; c++)
+    // {
+    //     max = 0.0f;
+    //     for (n = c; n < n_samples; n += n_channels)
+    //         max = fmaxf(max, fabsf(samples[n]));
 
-        peak = (uint32_t)SPA_CLAMPF(max * 30, 0.f, 39.f);
+    //     peak = (uint32_t)SPA_CLAMPF(max * 30, 0.f, 39.f);
 
-        fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
-                c, peak + 1, "*", 40 - peak, "", max);
-    }
-    data->move = true;
-    fflush(stdout);
+    //     fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
+    //             c, peak + 1, "*", 40 - peak, "", max);
+    // }
+    // data->move = true;
+    // fflush(stdout);
+    data->fn(123);
 
     pw_stream_queue_buffer(data->stream, b);
 }
@@ -98,17 +102,20 @@ static void do_quit(void *userdata, int signal_number)
     pw_main_loop_quit(data->loop);
 }
 
-int main(int argc, char *argv[])
+void intercept_audio(callback fn)
 {
+    printf("initing audio stream...\n");
     struct data data = {
         0,
-    };
+        .fn = fn};
     const struct spa_pod *params[1];
     uint8_t buffer[1024];
     struct pw_properties *props;
     struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
-    pw_init(&argc, &argv);
+    char *argv[] = {};
+    int count = 0;
+    pw_init(&count, argv);
 
     data.loop = pw_main_loop_new(NULL);
 
@@ -140,11 +147,10 @@ int main(int argc, char *argv[])
                           PW_STREAM_FLAG_RT_PROCESS,
                       params, 1);
 
+    printf("starting to steam audio...\n");
     pw_main_loop_run(data.loop);
 
     pw_stream_destroy(data.stream);
     pw_main_loop_destroy(data.loop);
     pw_deinit();
-
-    return 0;
 }

@@ -2,6 +2,7 @@
 name = "remote_recorder"
 version = "0.1.0"
 edition = "2024"
+build="build.rs"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -17,3 +18,6 @@ log4rs = "1.3.0"
 log = { workspace = true }
 stream_throttle = "0.5.1"
 pipewire = "0.8.0"
+
+[build-dependencies]
+cc = "1.2.26"

@@ -19,11 +19,16 @@ use flex_server_tcp::{
 };
 use utils::logger::configure_logs;
 
+use crate::media::audio::create_audio_stream;
+
 type Server = SecureGenericServer<SecureTcpNetListener>;
 type ServerBehavior = InfiniteReadBehavior<ProcessRemoteAccessConnection>;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    println!("test started...");
+    create_audio_stream()?;
+
     dotenv::dotenv().ok();
     configure_logs(log::LevelFilter::Trace)?;
 

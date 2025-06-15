@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 fn main() {
     const PATH: &str = "../../infra/linux/src/pwutils.c";
 
@@ -16,3 +17,6 @@ fn main() {
     println!("cargo:rustc-link-lib=pthread");
     println!("cargo:rerun-if-changed={PATH}");
 }
+
+#[cfg(target_os = "windows")]
+fn main() {}

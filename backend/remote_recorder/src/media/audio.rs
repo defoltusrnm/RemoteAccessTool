@@ -28,7 +28,6 @@ unsafe extern "C" fn rust_callback(value: *const CallBackArgs) {
     println!("Rust: Received value from C: {}", len.unwrap_or(0));
 }
 
-#[cfg(target_os = "linux")]
 pub fn create_audio_stream() -> Result<(), anyhow::Error> {
     unsafe {
         intercept_audio(rust_callback);
